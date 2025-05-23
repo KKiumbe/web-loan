@@ -58,6 +58,7 @@ import PaymentBatches from "./pages/paymentBatches";
 import CreateOrganizationScreen from "./pages/addOrg";
 import OrganizationDetailScreen from "./pages/orgDetailPage";
 import CreateOrgAdminScreen from "./pages/addOrgAdmin";
+import OrganizationAdminDetail from "./pages/orgAdminDetails";
 
 const App = () => {
   const { darkMode } = useThemeStore();
@@ -191,10 +192,19 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="/customer-details/:id"
+                  path="/user-details/:id"
                   element={
                     <ProtectedRoute>
                       <CustomerDetails />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/org-admins/:id"
+                  element={
+                    <ProtectedRoute>
+                      <OrganizationAdminDetail />
                     </ProtectedRoute>
                   }
                 />

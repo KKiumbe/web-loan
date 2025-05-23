@@ -202,7 +202,7 @@ const CustomerScreen = () => {
       renderCell: (params) => (
         <IconButton
           component={Link}
-          to={`/customer-details/${params.row.userId === 'N/A' ? params.row.phoneNumber : params.row.userId}`}
+          to={`/user-details/${params.id === 'N/A' ? params.row.phoneNumber : params.row.userId}`}
           size="small"
         >
           <VisibilityIcon fontSize="small" />

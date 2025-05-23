@@ -37,7 +37,7 @@ const UserDetails = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
 
   const isCurrentUser = currentUser && currentUser.id === id;
-  const BASEURL = import.meta.env.VITE_BASE_URL || "https://taqa.co.ke/api";
+  const BASEURL = import.meta.env.VITE_BASE_URL;
   useEffect(() => {
     const fetchUser = async () => {
       try {

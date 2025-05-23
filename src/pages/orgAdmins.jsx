@@ -8,17 +8,17 @@ import {
   Snackbar,
   Button,
   IconButton,
-  Stack
+  Stack,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
+import { useNavigate } from 'react-router-dom';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import AddIcon from '@mui/icons-material/Add';
 import { useAuthStore } from '../store/authStore';
 import { getTheme } from '../store/theme';
 import TitleComponent from '../components/title';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import AddIcon from '@mui/icons-material/Add';
-import { useNavigate } from 'react-router-dom';
 
-const OrganizationAdminsScreen = () => {
+export default function OrganizationAdminsScreen() {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
@@ -31,19 +31,22 @@ const OrganizationAdminsScreen = () => {
   useEffect(() => {
     if (!currentUser) return;
     fetchAdmins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const fetchAdmins = async () => {
     try {
-      const res = await axios.get(`${BASE_URL}/org-admins`, {
-        withCredentials: true,
-      });
+      const res = await axios.get(
+        `${BASE_URL}/org-admins`,
+        { withCredentials: true }
+      );
 
-      const flattened = res.data.map((admin) => ({
+      const flattened = (res.data.admins || res.data || []).map((admin) => ({
         ...admin,
         organizationName: admin.organization?.name || 'N/A',
       }));
 
+      console.log('this is the admins', flattened);
       setAdmins(flattened);
     } catch (error) {
       console.error('Error fetching organization admins:', error);
@@ -54,7 +57,7 @@ const OrganizationAdminsScreen = () => {
   };
 
   const columns = [
-      {
+    {
       field: 'actions',
       headerName: 'Actions',
       width: 120,
@@ -69,16 +72,11 @@ const OrganizationAdminsScreen = () => {
     { field: 'lastName', headerName: 'Last Name', width: 150 },
     { field: 'email', headerName: 'Email', width: 200 },
     { field: 'phoneNumber', headerName: 'Phone', width: 150 },
-    {
-      field: 'organizationName',
-      headerName: 'Organization',
-      width: 200,
-    },
-  
+    { field: 'organizationName', headerName: 'Organization', width: 200 },
   ];
 
   return (
-    <Box sx={{ bgcolor: theme?.palette?.background?.paper, minHeight: '100vh', p: 4 }}>
+    <Box sx={{ bgcolor: theme.palette.background.paper, minHeight: '100vh', p: 4 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h5">
           <TitleComponent title="Organization Admins" />
@@ -94,7 +92,9 @@ const OrganizationAdminsScreen = () => {
       </Stack>
 
       {loading ? (
-        <CircularProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
       ) : (
         <Paper>
           <DataGrid
@@ -111,11 +111,9 @@ const OrganizationAdminsScreen = () => {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        onClose={() => setSnackbar({ open: false, message: '' })}
         message={snackbar.message}
       />
     </Box>
   );
-};
-
-export default OrganizationAdminsScreen;
+}

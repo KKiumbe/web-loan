@@ -68,20 +68,24 @@ const LoanRequestsScreen = () => {
   const handleReject = async () => {
     if (!selectedLoan) return;
     try {
-      await axios.put(
-        `${BASE_URL}/loans/${selectedLoan.id}/status`,
+      const res = await axios.put(
+        `${BASE_URL}/reject-loan/${selectedLoan.id}`,
         { status: 'REJECTED' },
         { withCredentials: true }
       );
-      setSnackbar({ open: true, message: 'Loan rejected successfully' });
+      setSnackbar({
+        open: true,
+        message: res.data.message || 'Loan rejected successfully',
+        severity: 'success',
+      });
       setModalOpen(false);
       fetchLoans();
     } catch (error) {
       console.error('Error rejecting loan:', error);
-      setSnackbar({ open: true, message: 'Failed to reject loan' });
+      const msg = error.response?.data?.message || 'Failed to reject loan';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
     }
   };
-
   const columns = [
     {
       field: 'actions',

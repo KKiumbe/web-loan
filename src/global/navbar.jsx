@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore, useThemeStore } from "../store/authStore";
 import axios from "axios";
 import { getTheme } from "../store/theme";
+import { useCallback } from "react";
 
 const Navbar = () => {
   const { darkMode, toggleTheme } = useThemeStore();
@@ -70,7 +71,9 @@ const Navbar = () => {
     setProfileOpen(!profileOpen);
   };
 
-  const fetchSMSBalance = async () => {
+
+
+  const fetchSMSBalance = useCallback(async () => {
     try {
       const response = await axios.get(`${BASEURL}/get-sms-balance`, { withCredentials: true });
       setSMS(response.data.credit);
@@ -78,24 +81,25 @@ const Navbar = () => {
       console.error("Error fetching SMS balance:", error);
       setSMS("N/A");
     }
-  };
+  }, [BASEURL]);
 
-  const fetchFloatBalance = async () => {
+  const fetchFloatBalance = useCallback(async () => {
     try {
       const response = await axios.get(`${BASEURL}/balance/latest`, { withCredentials: true });
       setFloatBalance(response.data.utilityAccountBalance);
+ console.log(`response data is ${JSON.stringify(response.data)}`);
     } catch (error) {
       console.error("Error fetching float balance:", error);
       setFloatBalance("N/A");
     }
-  };
+  }, [BASEURL]);
 
   useEffect(() => {
     fetchSMSBalance();
     if (isAdmin) {
       fetchFloatBalance();
     }
-  }, [isAdmin]);
+  }, [isAdmin, fetchSMSBalance, fetchFloatBalance]);
 
   const handleEditToggle = () => {
     setEditMode(!editMode);

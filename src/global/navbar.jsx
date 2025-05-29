@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import  { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -15,7 +15,7 @@ import {
   Snackbar,
   Alert,
 } from "@mui/material";
-import { HelpOutline, AccountCircle, Menu as MenuIcon, Edit } from "@mui/icons-material";
+import { AccountCircle, Menu as MenuIcon, Edit } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, useThemeStore } from "../store/authStore";
 import axios from "axios";
@@ -23,25 +23,28 @@ import { getTheme } from "../store/theme";
 
 const Navbar = () => {
   const { darkMode, toggleTheme } = useThemeStore();
-  const { currentUser, logout} = useAuthStore();
+  const { currentUser, logout } = useAuthStore();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [sms, setSMS] = useState(null);
+  const [floatBalance, setFloatBalance] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [userDetails, setUserDetails] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phoneNumber: "",
-  
-    currentPassword: "", // For verification if password change is attempted
-    password: "",        // New password field aligned with backend
-    confirmPassword: "", // For frontend validation
+    currentPassword: "",
+    password: "",
+    confirmPassword: "",
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
-  const BASEURL = import.meta.env.VITE_BASE_URL || "https://taqa.co.ke/api";
+  const BASEURL = import.meta.env.VITE_BASE_URL;
   const theme = getTheme(darkMode ? "dark" : "light");
+
+  const isAdmin = currentUser?.role?.includes("ADMIN");
+
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -58,7 +61,6 @@ const Navbar = () => {
         lastName: currentUser.lastName || "",
         email: currentUser.email || "",
         phoneNumber: currentUser.phoneNumber || "",
-      
         currentPassword: "",
         password: "",
         confirmPassword: "",
@@ -78,9 +80,22 @@ const Navbar = () => {
     }
   };
 
+  const fetchFloatBalance = async () => {
+    try {
+      const response = await axios.get(`${BASEURL}/balance/latest`, { withCredentials: true });
+      setFloatBalance(response.data.utilityAccountBalance);
+    } catch (error) {
+      console.error("Error fetching float balance:", error);
+      setFloatBalance("N/A");
+    }
+  };
+
   useEffect(() => {
     fetchSMSBalance();
-  }, []);
+    if (isAdmin) {
+      fetchFloatBalance();
+    }
+  }, [isAdmin]);
 
   const handleEditToggle = () => {
     setEditMode(!editMode);
@@ -125,20 +140,17 @@ const Navbar = () => {
     if (userDetails.lastName) payload.lastName = userDetails.lastName;
     if (email) payload.email = email;
     if (phoneNumber) payload.phoneNumber = phoneNumber;
-  
     if (currentPassword && password) {
-      payload.currentPassword = currentPassword; // Include current password for backend verification
-      payload.password = password;               // New password to be hashed by backend
+      payload.currentPassword = currentPassword;
+      payload.password = password;
     }
 
     try {
       const response = await axios.put(`${BASEURL}/update-user`, payload, { withCredentials: true });
-      console.log("Profile update payload:", payload); // Check if the payload is correct
-      if(response){
+      console.log("Profile update payload:", payload);
+      if (response) {
         navigate("/login");
-
       }
-    // Update store with new user data
       setSnackbar({ open: true, message: "Profile updated successfully", severity: "success" });
       setEditMode(false);
     } catch (error) {
@@ -152,7 +164,7 @@ const Navbar = () => {
   };
 
   const profileDrawer = (
-    <Box sx={{ width: 300, }}>
+    <Box sx={{ width: 300 }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h6">Profile</Typography>
         <IconButton
@@ -211,8 +223,6 @@ const Navbar = () => {
                   sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
                 />
               </ListItem>
-             
-           
               <ListItem>
                 <TextField
                   label="Current Password"
@@ -252,7 +262,7 @@ const Navbar = () => {
                   color="primary"
                   onClick={handleUpdateUser}
                   fullWidth
-                  sx={{ mb: 1,  color: darkMode ? theme.palette.greenAccent.main : "#000"}}
+                  sx={{ mb: 1, color: darkMode ? theme.palette.greenAccent.main : "#000" }}
                 >
                   Save Changes
                 </Button>
@@ -271,16 +281,14 @@ const Navbar = () => {
           ) : (
             <>
               <ListItem>
-              <ListItemText
-                 
-                  primary={`${currentUser.tenant?.name || "Unknown"} `}
-                />
+                <ListItemText primary="Tenant" secondary={currentUser.tenant?.name || "Unknown"} />
               </ListItem>
+              <ListItem>
                 <ListItemText
                   primary="Name"
                   secondary={`${currentUser.firstName || "Unknown"} ${currentUser.lastName || ""}`}
                 />
-            
+              </ListItem>
               <ListItem>
                 <ListItemText primary="Email" secondary={currentUser.email || "N/A"} />
               </ListItem>
@@ -327,18 +335,18 @@ const Navbar = () => {
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Typography>SMS Balance: KSH.{sms !== null ? sms : "Loading..."}</Typography>
-
+            <Typography>SMS Balance: {sms !== null ? sms : "Loading..."}</Typography>
+            {isAdmin && (
+              <Typography>
+                Float Balance: KES {floatBalance !== null ? floatBalance : "Loading..."}
+              </Typography>
+            )}
             <IconButton color="inherit" onClick={toggleTheme}>
               {darkMode ? "🌙" : "☀️"}
             </IconButton>
-
-         
-
             <IconButton color="inherit" onClick={handleProfileToggle}>
               <AccountCircle />
             </IconButton>
-
             <Button color="inherit" onClick={handleLogout} sx={{ ml: 1 }}>
               Logout
             </Button>

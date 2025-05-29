@@ -49,7 +49,7 @@ const currentUser = useAuthStore((state) => state.currentUser);
     }
     if (formData.approvalSteps) {
       const steps = Number(formData.approvalSteps);
-      if (!Number.isInteger(steps) || steps < 1) {
+      if (!Number.isInteger(steps) || steps >= 0) {
         newErrors.approvalSteps = 'Approval steps must be a positive integer';
       }
     }

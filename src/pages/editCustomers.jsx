@@ -69,12 +69,14 @@ const CustomerEditScreen = () => {
   // Fetch customer data on mount
   useEffect(() => {
     const fetchData = async () => {
+    
       try {
-        const customerResponse = await axios.get(`${BASEURL}/customer-details/${id}`, {
+          console.log(`this is the user id ${id}`);
+        const customerResponse = await axios.get(`${BASEURL}/employee-details/${id}`, {
           withCredentials: true,
         });
         const fetchedData = customerResponse.data;
-
+ 
         // Normalize data
         const normalizedData = {
           firstName: fetchedData.firstName || '',
@@ -153,9 +155,10 @@ const CustomerEditScreen = () => {
         setLoading(false);
         return;
       }
-      await axios.put(`${BASEURL}/customers/${id}`, changedData, {
+      await axios.put(`${BASEURL}/update-employee/${id}`, changedData, {
         withCredentials: true,
       });
+   
       setLoading(false);
       setSnackbar({
         open: true,

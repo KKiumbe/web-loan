@@ -1,4 +1,4 @@
-import  { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Container,
@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import EditIcon from '@mui/icons-material/Edit';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { getTheme } from '../store/theme';
@@ -37,10 +38,9 @@ export default function CustomerDetails() {
     }
 
     axios
-      .get(`${BASEURL}/user-details/${id}`, { withCredentials: true })
+      .get(`${BASEURL}/employee-details/${id}`, { withCredentials: true })
       .then((res) => {
         const data = res.data;
-        // Flatten nested response
         const flatUser = {
           id: data.id,
           fullName: `${data.firstName} ${data.lastName}`,
@@ -74,7 +74,6 @@ export default function CustomerDetails() {
     { field: 'amount', headerName: 'Amount (KES)', width: 150, type: 'number' },
     { field: 'status', headerName: 'Status', width: 120 },
     { field: 'organizationName', headerName: 'Organization', width: 200 },
-   
   ];
 
   if (loading) {
@@ -98,13 +97,23 @@ export default function CustomerDetails() {
 
   return (
     <Container sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <IconButton onClick={() => navigate(-1)} sx={{ color: theme.palette.greenAccent.main }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h5" sx={{ ml: 1 }}>
-          {user.fullName}
-        </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ color: theme.palette.greenAccent.main }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h5" sx={{ ml: 1 }}>
+            {user.fullName}
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          startIcon={<EditIcon />}
+          onClick={() => navigate(`/customer-edit/${id}`)}
+          sx={{ color: theme.palette.greenAccent.main, borderColor: theme.palette.greenAccent.main }}
+        >
+          Edit
+        </Button>
       </Box>
 
       <Paper sx={{ p: 3, mb: 4 }}>

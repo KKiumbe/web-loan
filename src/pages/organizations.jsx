@@ -20,6 +20,7 @@ import { getTheme } from '../store/theme';
 import { Link, useNavigate } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useAuthStore } from '../store/authStore';
+import EditIcon from '@mui/icons-material/Edit'; // ensure this is imported
 
 class ErrorBoundary extends Component {
   state = { hasError: false, error: null };
@@ -96,6 +97,18 @@ const OrganizationsScreen = () => {
       ),
      
     },
+
+    {
+  field: 'Edit',
+  headerName: 'Edit',
+  width: 100,
+  renderCell: (params) => (
+    <IconButton component={Link} to={`/edit-org/${params.row.id}`}>
+      <EditIcon />
+    </IconButton>
+  ),
+},
+
     { field: 'name', headerName: 'Organization Name', width: 200 },
     { field: 'employeeCount', headerName: 'Employees', width: 130, type: 'number' },
     { field: 'loanCount', headerName: 'Loans', width: 130, type: 'number' },

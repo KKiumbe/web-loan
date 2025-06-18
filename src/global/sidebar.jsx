@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Drawer,
   List,
@@ -108,7 +108,12 @@ const Sidebar = () => {
           </List>
         </Collapse>
 
+
+
+
        {/* Organizations Menu */}
+
+{/* Organizations Menu */}
 <ListItem button onClick={() => toggleSubmenu("properties")} sx={{ py: 1 }}>
   <ListItemIcon sx={{ minWidth: 40 }}>
     <Business sx={{ fontSize: 24 }} />
@@ -119,6 +124,16 @@ const Sidebar = () => {
 
 <Collapse in={submenuOpen.properties} timeout="auto" unmountOnExit>
   <List component="div" disablePadding>
+    {/* Create Organization */}
+    <ListItem button sx={{ pl: 3, py: 0.5 }} onClick={() => navigate("/create-organization")}>
+      <ListItemIcon sx={{ minWidth: 30 }}>
+        <Add sx={{ fontSize: 20 }} />
+      </ListItemIcon>
+      {open && <ListItemText primary="Create Organization" sx={{ fontSize: "0.8rem" }} />}
+    </ListItem>
+
+    {/* Create Org Admin */}
+  
 
     {/* View Organizations */}
     <ListItem button sx={{ pl: 3, py: 0.5 }} onClick={() => navigate("/organizations")}>
@@ -127,8 +142,9 @@ const Sidebar = () => {
       </ListItemIcon>
       {open && <ListItemText primary="All Organizations" sx={{ fontSize: "0.8rem" }} />}
     </ListItem>
+   
 
-    {/* Organization Admins */}
+    {/* View Org Admins */}
     <ListItem button sx={{ pl: 3, py: 0.5 }} onClick={() => navigate("/org-admins")}>
       <ListItemIcon sx={{ minWidth: 30 }}>
         <HomeWorkIcon sx={{ fontSize: 20 }} />
@@ -136,8 +152,19 @@ const Sidebar = () => {
       {open && <ListItemText primary="Org Admins" sx={{ fontSize: "0.8rem" }} />}
     </ListItem>
 
+       <ListItem button sx={{ pl: 3, py: 0.5 }} onClick={() => navigate("/org-admins/create")}>
+      <ListItemIcon sx={{ minWidth: 30 }}>
+        <Add sx={{ fontSize: 20 }} />
+      </ListItemIcon>
+      {open && <ListItemText primary="Create Org Admin" sx={{ fontSize: "0.8rem" }} />}
+    </ListItem>
   </List>
 </Collapse>
+
+
+
+
+
 
 
         {/* Loans Menu */}

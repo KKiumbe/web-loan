@@ -18,6 +18,7 @@ import axios from 'axios';
 import TitleComponent from '../components/title';
 import { getTheme } from '../store/theme';
 import { useAuthStore } from '../store/authStore';
+import EditIcon from '@mui/icons-material/Edit';
 
 export default function OrganizationDetailScreen() {
   const { orgId } = useParams();
@@ -32,7 +33,6 @@ export default function OrganizationDetailScreen() {
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
   useEffect(() => {
-    // Check if currentUser exists and has EMPLOYEE role
     if (!currentUser) {
       setSnackbar({
         open: true,
@@ -42,7 +42,6 @@ export default function OrganizationDetailScreen() {
       setTimeout(() => navigate('/login'), 2000);
       return;
     }
-  
 
     const fetchOrg = async () => {
       try {
@@ -69,7 +68,6 @@ export default function OrganizationDetailScreen() {
           alignItems: 'center',
           height: '100vh',
           width: '100vw',
-          //bgcolor: theme.palette.background.default,
         }}
       >
         <CircularProgress size={50} sx={{ color: theme.palette.primary.main }} />
@@ -101,8 +99,11 @@ export default function OrganizationDetailScreen() {
             borderRadius: 2,
             textTransform: 'none',
             fontWeight: 600,
-            bgcolor: theme.palette.primary.main,
-            ':hover': { bgcolor: theme.palette.primary.dark },
+            color: theme.palette.greenAccent.main, borderColor: theme.palette.greenAccent.main,
+            ':hover': {
+              backgroundColor: theme.palette.greenAccent.light,
+              color: theme.palette.greenAccent.dark,
+            },
           }}
         >
           Go Back
@@ -126,26 +127,43 @@ export default function OrganizationDetailScreen() {
   } = organization;
 
   return (
-    <Box sx={{ minHeight: '100vh', width: '100vw', bgcolor: theme.palette.background.default }}>
+    <Box sx={{ minHeight: '100vh', width: '100vw' }}>
       <Box sx={{ px: { xs: 2, sm: 4, md: 6 }, py: 5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
             <TitleComponent title={`Organization: ${name}`} />
           </Typography>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/organizations')}
-            sx={{
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 500,
-              borderColor: theme.palette.primary.main,
-              color: theme.palette.primary.main,
-              ':hover': { borderColor: theme.palette.primary.dark, color: theme.palette.primary.dark },
-            }}
-          >
-            Back to Organizations
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate(`/organizations/edit/${orgId}`)}
+              startIcon={<EditIcon />}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 500,
+                borderColor: theme.palette.greenAccent.main,
+                color: theme.palette.greenAccent.main,
+                ':hover': { borderColor: theme.palette.secondary.light, color: theme.palette.primary.light },
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/organizations')}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 500,
+                 borderColor: theme.palette.greenAccent.main,
+                color: theme.palette.greenAccent.main,
+                ':hover': { borderColor: theme.palette.secondary.light, color: theme.palette.primary.light },
+              }}
+            >
+              Back to Organizations
+            </Button>
+          </Box>
         </Box>
 
         <Paper

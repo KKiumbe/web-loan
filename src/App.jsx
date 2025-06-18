@@ -59,6 +59,7 @@ import CreateOrganizationScreen from "./pages/addOrg";
 import OrganizationDetailScreen from "./pages/orgDetailPage";
 import CreateOrgAdminScreen from "./pages/addOrgAdmin";
 import OrganizationAdminDetail from "./pages/orgAdminDetails";
+import EditOrg from "./pages/EditOrganizationScreen";
 
 const App = () => {
   const { darkMode } = useThemeStore();
@@ -208,6 +209,20 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+
+                path="/edit-org/:id"
+
+                 element={
+                    <ProtectedRoute>
+                      <EditOrg />
+                    </ProtectedRoute>
+                  }
+                
+                />
+
+
+
                 <Route
                   path="/payments"
                   element={

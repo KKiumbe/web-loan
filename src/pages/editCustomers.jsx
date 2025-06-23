@@ -31,7 +31,7 @@ const CustomerEditScreen = () => {
     secondaryPhoneNumber: '',
     nationalId: '',
     status: '',
-    closingBalance: '',
+    grossSalary: '',
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -86,9 +86,9 @@ const CustomerEditScreen = () => {
           secondaryPhoneNumber: fetchedData.secondaryPhoneNumber || '',
           nationalId: fetchedData.nationalId || '',
           status: fetchedData.status || '',
-          closingBalance:
-            fetchedData.closingBalance !== null && fetchedData.closingBalance !== undefined
-              ? fetchedData.closingBalance.toString()
+          grossSalary:
+            fetchedData.grossSalary !== null && fetchedData.grossSalary !== undefined
+              ? fetchedData.grossSalary.toString()
               : '',
         };
 
@@ -111,7 +111,7 @@ const CustomerEditScreen = () => {
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'closingBalance') {
+    if (name === 'grossSalary') {
       const cleanedValue = cleanNumberInput(value);
       setCustomerData((prev) => ({
         ...prev,
@@ -130,7 +130,7 @@ const CustomerEditScreen = () => {
     const changedFields = {};
     for (const key in customerData) {
       if (customerData[key] !== originalData[key]) {
-        if (key === 'closingBalance') {
+        if (key === 'grossSalary') {
           changedFields[key] = customerData[key] ? parseFloat(customerData[key]) : null;
         } else {
           changedFields[key] = customerData[key];
@@ -261,10 +261,10 @@ const CustomerEditScreen = () => {
               <MenuItem value="PENDING">Pending</MenuItem>
             </TextField>
             <TextField
-              label="Closing Balance"
-              name="closingBalance"
+              label="Gross Salary"
+              name="grossSalary"
               type="text"
-              value={formatNumberWithCommas(customerData.closingBalance)}
+              value={formatNumberWithCommas(customerData.grossSalary)}
               onChange={handleChange}
               fullWidth
               

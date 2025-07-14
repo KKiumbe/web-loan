@@ -1,70 +1,66 @@
-import React from "react";
+
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import { CssBaseline, Box } from "@mui/material";
 import { useAuthStore, useThemeStore } from "./store/authStore";
 import { getTheme } from "./store/theme";
 
-import HomeScreen from "./pages/home";
-import Login from "./pages/login";
+
+
+
 
 import ProtectedRoute from "./ProtectedRoute";
 import Navbar from "./global/navbar";
 import Sidebar from "./global/sidebar";
-import CustomersScreen from "./pages/customers";
+import Login from "./pages/auth/login";
+import ForgotPasswordScreen from "./pages/auth/forgotPassword";
+import ChangePasswordScreen from "./pages/auth/ChangePasswordScreen";
+import VerifyOtpScreen from "./pages/auth/VerifyOtpScreen";
+import HomeScreen from "./pages/home/home";
+import EmployeeListScreen from "./pages/customers/customers";
+import OrganizationsScreen from "./pages/organization/organizations";
+import LoanRequestsScreen from "./pages/loans/loanRequest";
+import CreateEmployeeScreen from "./pages/customers/addCustomers";
+import LoansScreen from "./pages/loans/loans";
+import InvoiceDetails from "./pages/invoices/InvoiceDetail";
+import CustomerDetails from "./pages/customers/customerDetails";
+import OrganizationAdminDetail from "./pages/organization/orgAdminDetails";
+import EditOrganization from "./pages/organization/editOrg";
+import Payments from "./pages/payments/payments";
+import PaymentConfirmations from "./pages/payments/paymentsIn";
+import PaymentBatches from "./pages/payments/paymentBatches";
+import CreatePayment from "./pages/payments/addPayment";
+import OrganizationAdminsScreen from "./pages/organization/orgAdmins";
+import Receipts from "./pages/receipts/receipts";
+import ReceiptDetail from "./pages/receipts/receiptDetails";
+import SentSMSPage from "./pages/sms/sentSMS";
+import SmsScreen from "./pages/sms/sendSMS";
+import SendBillsScreen from "./pages/sms/sendBills";
+import DebtManager from "./pages/sms/debtManager/debtManager";
+import ReportScreen from "./pages/reports/reports";
+import ComingSoonPage from "./pages/comming/comingSoon";
+import CustomerEditScreen from "./pages/customers/editCustomers";
+import UserManagementScreen from "./pages/user/users";
+import AddUser from "./pages/user/addUser";
+import UserDetails from "./pages/user/userDetails";
+import Organization from "./pages/organization/orgDetails";
+import CreateOrganizationScreen from "./pages/organization/addOrg";
+import OrganizationDetailScreen from "./pages/organization/orgDetailPage";
+import CreateOrgAdminScreen from "./pages/organization/addOrgAdmin";
+import AssignTaskScreen from "./pages/tasks/createTask";
+import FetchTasksScreen from "./pages/tasks/fetchTasks";
+import TaskDetailsScreen from "./pages/tasks/taskDetails";
 
-import AddCustomer from "./pages/addCustomers";
 
-import InvoiceDetails from "./pages/InvoiceDetail";
-import CustomerDetails from "./pages/customerDetails";
-import Payments from "./pages/payments";
-import PaymentDetails from "./pages/PaymentDetail";
-import CreatePayment from "./pages/addPayment";
-import Receipts from "./pages/receipts";
-import ReceiptDetail from "./pages/receiptDetails";
-import SentSMSPage from "./pages/sentSMS";
-import SmsScreen from "./pages/sendSMS";
-import SendBillsScreen from "./pages/sendBills";
-import DebtManager from "./pages/debtManager";
-import ReportScreen from "./pages/reports";
-import ComingSoonPage from "./pages/comingSoon";
-import CustomerEditScreen from "./pages/editCustomers";
-import ForgotPasswordScreen from "./pages/forgotPassword";
-import ChangePasswordScreen from "./pages/ChangePasswordScreen";
-import VerifyOtpScreen from "./pages/VerifyOtpScreen";
-import UserManagementScreen from "./pages/users";
-import UserDetails from "./pages/userDetails";
-import AddUser from "./pages/addUser";
-import Organization from "./pages/orgDetails";
-import EditOrganization from "./pages/editOrg";
-import AssignTaskScreen from "./pages/createTask";
-import FetchTasksScreen from "./pages/fetchTasks";
-import TaskDetailsScreen from "./pages/taskDetails";
 
-import BuildingDetailsScreen from "./pages/propertyDetails";
-import CreatePropertyAndUnitsScreen from "./pages/addProperty";
-import CreateReadingScreen from "./pages/addutilities";
-import LandlordsScreen from "./pages/orgAdmins";
-import TerminateLease from "./pages/terminateLease";
-import LandlordDetailsScreen from "./pages/landlordDetails";
-import EditBuildingScreen from "./pages/editBuilding";
-import OrganizationsScreen from "./pages/organizations";
-import LoanRequestsScreen from "./pages/loanRequest";
-import LoansScreen from "./pages/loans";
-import OrganizationAdminsScreen from "./pages/orgAdmins";
-import CreateEmployeeScreen from "./pages/addCustomers";
-import PaymentConfirmations from "./pages/paymentsIn";
-import PaymentBatches from "./pages/paymentBatches";
-import CreateOrganizationScreen from "./pages/addOrg";
-import OrganizationDetailScreen from "./pages/orgDetailPage";
-import CreateOrgAdminScreen from "./pages/addOrgAdmin";
-import OrganizationAdminDetail from "./pages/orgAdminDetails";
-import EditOrg from "./pages/EditOrganizationScreen";
 
 const App = () => {
   const { darkMode } = useThemeStore();
   const { isAuthenticated } = useAuthStore();
   const theme = getTheme(darkMode ? "dark" : "light");
+
+
+  
 
   return (
     <ThemeProvider theme={theme}>
@@ -100,7 +96,7 @@ const App = () => {
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/reset-password" element={<ForgotPasswordScreen />} />
-                <Route path="/change-password" element={<ChangePasswordScreen />} />
+                <Route path="/change-password" element={<ChangePasswordScreen/>} />
                 <Route path="/verify-otp" element={<VerifyOtpScreen />} />
                 <Route
                   path="/"
@@ -114,7 +110,7 @@ const App = () => {
                   path="/customers"
                   element={
                     <ProtectedRoute>
-                      <CustomersScreen />
+                      <EmployeeListScreen />
                     </ProtectedRoute>
                   }
                 />
@@ -129,37 +125,14 @@ const App = () => {
                   }
                 /> 
 
-                   <Route
-                  path="/add-property"
-                  element={
-                    <ProtectedRoute>
-                      <CreatePropertyAndUnitsScreen />
-                    </ProtectedRoute>
-                  }
-                /> 
 
 
 
 
 
-                   <Route
-                  path="/building-details/:id"
-                  element={
-                    <ProtectedRoute>
-                      <BuildingDetailsScreen />
-                    </ProtectedRoute>
-                  }
-                />
 
 
-                <Route
-                  path="/edit-building/:buildingId"
-                  element={
-                    <ProtectedRoute>
-                      <EditBuildingScreen/>
-                    </ProtectedRoute>
-                  }
-                />
+               
                 <Route
                   path="/loan-requests"
                   element={
@@ -215,7 +188,7 @@ const App = () => {
 
                  element={
                     <ProtectedRoute>
-                      <EditOrg />
+                      <EditOrganization />
                     </ProtectedRoute>
                   }
                 
@@ -255,14 +228,14 @@ const App = () => {
 
                 
 
-                <Route
+                {/* <Route
                   path="/payments/:id"
                   element={
                     <ProtectedRoute>
                       <PaymentDetails />
                     </ProtectedRoute>
                   }
-                />
+                /> */}
                 <Route
                   path="/add-payment"
                   element={
@@ -273,14 +246,7 @@ const App = () => {
                 />
 
 
-                     <Route
-                  path="/record-utility"
-                  element={
-                    <ProtectedRoute>
-                      <CreateReadingScreen />
-                    </ProtectedRoute>
-                  }
-                /> 
+                    
 
 
                    <Route
@@ -293,26 +259,10 @@ const App = () => {
                 /> 
 
 
-                  <Route
-                  path="/landlord/:id"
-                  element={
-                    <ProtectedRoute>
-                      <LandlordDetailsScreen />
-                    </ProtectedRoute>
-                  }
-                />
                 
 
                 
 
-                 <Route
-                  path="/terminate-lease/:id"
-                  element={
-                    <ProtectedRoute>
-                      <TerminateLease />
-                    </ProtectedRoute>
-                  }
-                /> 
                 <Route
                   path="/receipts"
                   element={
@@ -381,7 +331,7 @@ const App = () => {
                   path="/customer-edit/:id"
                   element={
                     <ProtectedRoute>
-                      <CustomerEditScreen />
+                      <CustomerEditScreen/>
                     </ProtectedRoute>
                   }
                 />

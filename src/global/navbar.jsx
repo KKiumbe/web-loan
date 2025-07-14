@@ -1,4 +1,4 @@
-import  { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   AppBar,
   Toolbar,
@@ -20,7 +20,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore, useThemeStore } from "../store/authStore";
 import axios from "axios";
 import { getTheme } from "../store/theme";
-import { useCallback } from "react";
 
 const Navbar = () => {
   const { darkMode, toggleTheme } = useThemeStore();
@@ -28,8 +27,8 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [sms, setSMS] = useState(null);
-  const [floatBalance, setFloatBalance] = useState(null);
+  const [sms, setSMS] = useState("N/A"); // Initialize with "N/A"
+  const [floatBalance, setFloatBalance] = useState("N/A"); // Initialize with "N/A"
   const [editMode, setEditMode] = useState(false);
   const [userDetails, setUserDetails] = useState({
     firstName: "",
@@ -44,7 +43,11 @@ const Navbar = () => {
   const BASEURL = import.meta.env.VITE_BASE_URL;
   const theme = getTheme(darkMode ? "dark" : "light");
 
-  const isAdmin = currentUser?.role?.includes("ADMIN");
+  const isAdmin = useMemo(() => {
+    return currentUser?.role?.includes("ADMIN") || false;
+  }, [currentUser]);
+
+  const hasFetchedBalance = useRef(false);
 
   const handleLogout = () => {
     logout();
@@ -71,12 +74,10 @@ const Navbar = () => {
     setProfileOpen(!profileOpen);
   };
 
-
-
   const fetchSMSBalance = useCallback(async () => {
     try {
       const response = await axios.get(`${BASEURL}/get-sms-balance`, { withCredentials: true });
-      setSMS(response.data.credit);
+      setSMS(response.data.credit ?? "N/A");
     } catch (error) {
       console.error("Error fetching SMS balance:", error);
       setSMS("N/A");
@@ -85,9 +86,9 @@ const Navbar = () => {
 
   const fetchFloatBalance = useCallback(async () => {
     try {
-      const response = await axios.get(`${BASEURL}/balance/latest`, { withCredentials: true });
-      setFloatBalance(response.data.utilityAccountBalance);
- console.log(`response data is ${JSON.stringify(response.data)}`);
+      console.log("🔁 Calling fetchFloatBalance...");
+      const response = await axios.get(`${BASEURL}/latest-mpesa-balance`, { withCredentials: true });
+      setFloatBalance(response.data.data?.utilityAccountBalance ?? "N/A");
     } catch (error) {
       console.error("Error fetching float balance:", error);
       setFloatBalance("N/A");
@@ -96,8 +97,10 @@ const Navbar = () => {
 
   useEffect(() => {
     fetchSMSBalance();
-    if (isAdmin) {
+
+    if (isAdmin && !hasFetchedBalance.current) {
       fetchFloatBalance();
+      hasFetchedBalance.current = true;
     }
   }, [isAdmin, fetchSMSBalance, fetchFloatBalance]);
 
@@ -120,13 +123,16 @@ const Navbar = () => {
   const handleUpdateUser = async () => {
     const { firstName, email, phoneNumber, currentPassword, password, confirmPassword } = userDetails;
 
-    // Validation
     if (!firstName || !email) {
       setSnackbar({ open: true, message: "First name and email are required", severity: "error" });
       return;
     }
     if ((currentPassword || password || confirmPassword) && (!currentPassword || !password)) {
-      setSnackbar({ open: true, message: "Current and new passwords are required to change password", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Current and new passwords are required to change password",
+        severity: "error",
+      });
       return;
     }
     if (password && password !== confirmPassword) {
@@ -134,11 +140,14 @@ const Navbar = () => {
       return;
     }
     if (password && password.length < 6) {
-      setSnackbar({ open: true, message: "New password must be at least 6 characters", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "New password must be at least 6 characters",
+        severity: "error",
+      });
       return;
     }
 
-    // Prepare payload
     const payload = {};
     if (firstName) payload.firstName = firstName;
     if (userDetails.lastName) payload.lastName = userDetails.lastName;
@@ -151,7 +160,6 @@ const Navbar = () => {
 
     try {
       const response = await axios.put(`${BASEURL}/update-user`, payload, { withCredentials: true });
-      console.log("Profile update payload:", payload);
       if (response) {
         navigate("/login");
       }
@@ -171,11 +179,7 @@ const Navbar = () => {
     <Box sx={{ width: 300 }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h6">Profile</Typography>
-        <IconButton
-          onClick={handleEditToggle}
-          sx={{ color: darkMode ? theme.palette.greenAccent.main : "#000" }}
-          title={editMode ? "Cancel Edit" : "Edit Profile"}
-        >
+        <IconButton onClick={handleEditToggle} sx={{ color: darkMode ? theme.palette.greenAccent.main : "#000" }}>
           <Edit />
         </IconButton>
       </Box>
@@ -184,100 +188,28 @@ const Navbar = () => {
         <List>
           {editMode ? (
             <>
+              {["firstName", "lastName", "email", "phoneNumber", "currentPassword", "password", "confirmPassword"].map(
+                (field) => (
+                  <ListItem key={field}>
+                    <TextField
+                      label={field.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase())}
+                      value={userDetails[field]}
+                      onChange={handleInputChange(field)}
+                      fullWidth
+                      size="small"
+                      type={field.toLowerCase().includes("password") ? "password" : "text"}
+                      sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
+                    />
+                  </ListItem>
+                )
+              )}
               <ListItem>
-                <TextField
-                  label="First Name"
-                  value={userDetails.firstName}
-                  onChange={handleInputChange("firstName")}
-                  fullWidth
-                  size="small"
-                  required
-                  sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
-                />
-              </ListItem>
-              <ListItem>
-                <TextField
-                  label="Last Name"
-                  value={userDetails.lastName}
-                  onChange={handleInputChange("lastName")}
-                  fullWidth
-                  size="small"
-                  sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
-                />
-              </ListItem>
-              <ListItem>
-                <TextField
-                  label="Email"
-                  value={userDetails.email}
-                  onChange={handleInputChange("email")}
-                  fullWidth
-                  size="small"
-                  type="email"
-                  required
-                  sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
-                />
-              </ListItem>
-              <ListItem>
-                <TextField
-                  label="Phone Number"
-                  value={userDetails.phoneNumber}
-                  onChange={handleInputChange("phoneNumber")}
-                  fullWidth
-                  size="small"
-                  sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
-                />
-              </ListItem>
-              <ListItem>
-                <TextField
-                  label="Current Password"
-                  value={userDetails.currentPassword}
-                  onChange={handleInputChange("currentPassword")}
-                  fullWidth
-                  size="small"
-                  type="password"
-                  sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
-                />
-              </ListItem>
-              <ListItem>
-                <TextField
-                  label="New Password"
-                  value={userDetails.password}
-                  onChange={handleInputChange("password")}
-                  fullWidth
-                  size="small"
-                  type="password"
-                  sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
-                />
-              </ListItem>
-              <ListItem>
-                <TextField
-                  label="Confirm New Password"
-                  value={userDetails.confirmPassword}
-                  onChange={handleInputChange("confirmPassword")}
-                  fullWidth
-                  size="small"
-                  type="password"
-                  sx={{ input: { color: darkMode ? "#fff" : "#000" } }}
-                />
-              </ListItem>
-              <ListItem>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleUpdateUser}
-                  fullWidth
-                  sx={{ mb: 1, color: darkMode ? theme.palette.greenAccent.main : "#000" }}
-                >
+                <Button variant="contained" color="primary" onClick={handleUpdateUser} fullWidth sx={{ mb: 1 }}>
                   Save Changes
                 </Button>
               </ListItem>
               <ListItem>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={handleEditToggle}
-                  fullWidth
-                >
+                <Button variant="outlined" color="secondary" onClick={handleEditToggle} fullWidth>
                   Cancel
                 </Button>
               </ListItem>
@@ -285,12 +217,12 @@ const Navbar = () => {
           ) : (
             <>
               <ListItem>
-                <ListItemText primary="Tenant" secondary={currentUser.tenant?.name || "Unknown"} />
+                <ListItemText primary="Tenant" secondary={currentUser.tenant?.name || "N/A"} />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Name"
-                  secondary={`${currentUser.firstName || "Unknown"} ${currentUser.lastName || ""}`}
+                  secondary={`${currentUser.firstName || "N/A"} ${currentUser.lastName || ""}`}
                 />
               </ListItem>
               <ListItem>
@@ -337,14 +269,9 @@ const Navbar = () => {
               TAQA
             </Typography>
           </Box>
-
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Typography>SMS Balance: {sms !== null ? sms : "Loading..."}</Typography>
-            {isAdmin && (
-              <Typography>
-                Float Balance: KES {floatBalance !== null ? floatBalance : "Loading..."}
-              </Typography>
-            )}
+            <Typography>SMS Balance: {sms}</Typography>
+            {isAdmin && <Typography>Float Balance: KES {floatBalance}</Typography>}
             <IconButton color="inherit" onClick={toggleTheme}>
               {darkMode ? "🌙" : "☀️"}
             </IconButton>
@@ -379,7 +306,11 @@ const Navbar = () => {
         open={profileOpen}
         onClose={handleProfileToggle}
         sx={{
-          "& .MuiDrawer-paper": { width: "300px", bgcolor: darkMode ? "#333" : "#fff", color: darkMode ? "#fff" : "#000" },
+          "& .MuiDrawer-paper": {
+            width: "300px",
+            bgcolor: darkMode ? "#333" : "#fff",
+            color: darkMode ? "#fff" : "#000",
+          },
         }}
       >
         {profileDrawer}

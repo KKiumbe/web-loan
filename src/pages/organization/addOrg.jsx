@@ -126,7 +126,7 @@ export default function CreateOrganizationScreen() {
                 value={formData.approvalSteps}
                 onChange={handleChange}
                 error={!!errors.approvalSteps}
-                helperText={errors.approvalSteps || 'Enter 0 for auto-approval'}
+                helperText={errors.approvalSteps || 'Enter 0 for auto-approval, 1-3 people required for manual approval'}
               />
             </Grid>
             <Grid item xs={6}>
@@ -138,7 +138,7 @@ export default function CreateOrganizationScreen() {
                 value={formData.loanLimitMultiplier}
                 onChange={handleChange}
                 error={!!errors.loanLimitMultiplier}
-                helperText={errors.loanLimitMultiplier}
+                helperText={errors.loanLimitMultiplier || 'Percentage of salary to be used as loan limit, 100% for no limit'}
               />
             </Grid>
             <Grid item xs={6}>

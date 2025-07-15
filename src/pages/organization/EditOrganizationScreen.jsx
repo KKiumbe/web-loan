@@ -56,23 +56,32 @@ export default function EditOrg() {
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (formData.approvalSteps !== '') {
-      const n = Number(formData.approvalSteps);
-      if (!Number.isInteger(n) || n < 0) newErrors.approvalSteps = 'Must be a non-negative integer';
-    }
-    if (formData.loanLimitMultiplier !== '') {
-      const n = Number(formData.loanLimitMultiplier);
-      if (isNaN(n) || n <= 0) newErrors.loanLimitMultiplier = 'Must be a positive number';
-    }
-    if (formData.interestRate !== '') {
-      const n = Number(formData.interestRate);
-      if (isNaN(n) || n < 0) newErrors.interestRate = 'Must be a non-negative number';
-    }
-    return newErrors;
-  };
+
+
+const validate = () => {
+  const newErrors = {};
+
+  if (!formData.name.trim()) {
+    newErrors.name = 'Name is required';
+  }
+
+  const approval = Number(formData.approvalSteps);
+  if (!Number.isInteger(approval) || approval < 0 || approval > 3) {
+    newErrors.approvalSteps = 'Must be a number between 0 and 3, 0 if you dont need approval';
+  }
+
+  const loanLimit = Number(formData.loanLimitMultiplier);
+  if (isNaN(loanLimit) || loanLimit < 1 || loanLimit > 100) {
+    newErrors.loanLimitMultiplier = 'Must be between 1 and 100';
+  }
+
+  const interest = Number(formData.interestRate);
+  if (isNaN(interest) || interest < 0 || interest > 100) {
+    newErrors.interestRate = 'Must be between 0 and 100';
+  }
+
+  return newErrors;
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -145,7 +154,8 @@ export default function EditOrg() {
                 value={formData.loanLimitMultiplier}
                 onChange={handleChange}
                 error={!!errors.loanLimitMultiplier}
-                helperText={errors.loanLimitMultiplier}
+               helperText={errors.loanLimitMultiplier || 'Enter a value between 1 and 100'}
+
               />
             </Grid>
             <Grid item xs={6}>
@@ -157,7 +167,8 @@ export default function EditOrg() {
                 value={formData.interestRate}
                 onChange={handleChange}
                 error={!!errors.interestRate}
-                helperText={errors.interestRate}
+               helperText={errors.interestRate || 'Enter a rate between 0 and 100'}
+
               />
             </Grid>
           </Grid>

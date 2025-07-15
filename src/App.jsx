@@ -50,6 +50,7 @@ import CreateOrgAdminScreen from "./pages/organization/addOrgAdmin";
 import AssignTaskScreen from "./pages/tasks/createTask";
 import FetchTasksScreen from "./pages/tasks/fetchTasks";
 import TaskDetailsScreen from "./pages/tasks/taskDetails";
+import EditOrg from "./pages/organization/EditOrganizationScreen";
 
 
 
@@ -188,7 +189,7 @@ const App = () => {
 
                  element={
                     <ProtectedRoute>
-                      <EditOrganization />
+                      <EditOrg />
                     </ProtectedRoute>
                   }
                 

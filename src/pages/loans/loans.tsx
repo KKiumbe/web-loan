@@ -271,7 +271,7 @@ const groupAndSetLoans = (loansArray) => {
   headerName: 'Date Disbursed',
   width: 200,
   renderCell: (params) => {
-    const value = params.row.disbursementDate;
+    const value = params?.row.disbursementDate;
     return value ? format(new Date(value), 'dd MMM yyyy, hh:mm a') : '—';
   }
 },

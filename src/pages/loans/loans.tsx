@@ -211,7 +211,8 @@ const groupAndSetLoans = (loansArray) => {
       createdAt: loan?.createdAt || null, // Ensure createdAt has a fallback
       duration: loan.duration || null, // Ensure duration has a fallback
       mpesaStatus: loan.mpesaStatus || 'N/A',
-      disbursementDate: loan?.LoanPayout.createdAt || null,
+      disbursementDate: loan?.disbursedAt || null, // Use disbursedAt instead of LoanPayout.createdAt
+
       loanPayout: loan.LoanPayout?.status || null,
       mpesaTrasactionId: loan.mpesaTransactionId || 'N/A',
     });
@@ -266,8 +267,20 @@ const groupAndSetLoans = (loansArray) => {
 }
 ,
     { field: 'mpesaStatus', headerName: 'Mpesa Status', width: 180, type: 'string' },
-    {field: 'disbursementDate', headerName: 'Disbursement Date', width: 200},
-  
+{
+  field: 'disbursementDate',
+  headerName: 'Disbursement Date',
+  width: 200,
+  renderCell: (params) => {
+    const value = params.row.disbursementDate;
+    if (!value) return '—';
+    try {
+      return format(new Date(value), 'dd MMM yyyy, HH:mm');
+    } catch {
+      return '—';
+    }
+  },
+},  
 
 
 

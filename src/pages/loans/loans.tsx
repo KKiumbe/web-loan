@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import {
   Box,
@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { getTheme } from '../../store/theme';
 import { useAuthStore } from '../../store/authStore';
 import TitleComponent from '../../components/title';
+import debounce from 'lodash/debounce';
 
 const loanStatusColors = {
   PENDING: '#FFA500',
@@ -31,17 +32,19 @@ const loanStatusColors = {
   REJECTED: '#F44336',
   DISBURSED: '#2196F3',
   REPAID: '#9C27B0',
+  UNKNOWN: '#757575',
 };
 
 const LoansScreen = () => {
   const [groupedLoans, setGroupedLoans] = useState({});
-  const [filteredLoans, setFilteredLoans] = useState([]);
-  const [status, setStatus] = useState('PENDING');
+ const [filteredLoans, setFilteredLoans] = useState<Loan[]>([]);
+  const [status, setStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [orgLoading, setOrgLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' });
   const [orgSearch, setOrgSearch] = useState('');
-  const [orgOptions, setOrgOptions] = useState([]);
+const [orgOptions, setOrgOptions] = useState<{ id: any; name: any; employeeCount: any; }[]>([]);
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [stats, setStats] = useState({
     totalLoans: 0,
@@ -61,6 +64,49 @@ const LoansScreen = () => {
   const navigate = useNavigate();
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
+  // Debounced search function
+  const debouncedSearchOrgs = useCallback(
+    debounce(async (value) => {
+      try {
+        setOrgLoading(true);
+        const res = await axios.get(`${BASE_URL}/organizations-search`, {
+          params: { search: value },
+          withCredentials: true,
+        });
+        console.log('searchOrgs response:', res.data);
+        const organizations = res.data.organizations || [];
+        if (Array.isArray(organizations)) {
+          setOrgOptions(
+            organizations.map((o) => ({
+              id: o.id,
+              name: o.name,
+              employeeCount: o.employeeCount || 0,
+            }))
+          );
+        } else {
+          console.error('Expected organizations array, got:', res.data.organizations);
+          setOrgOptions([]);
+          setSnackbar({
+            open: true,
+            message: 'Invalid organization search response',
+            severity: 'error',
+          });
+        }
+      } catch (error) {
+        console.error('searchOrgs error:', error.message);
+        setOrgOptions([]);
+        setSnackbar({
+          open: true,
+          message: 'Failed to search organizations',
+          severity: 'error',
+        });
+      } finally {
+        setOrgLoading(false);
+      }
+    }, 300),
+    []
+  );
+
   useEffect(() => {
     if (!currentUser) {
       setSnackbar({ open: true, message: 'Please log in to continue.', severity: 'error' });
@@ -75,8 +121,17 @@ const LoansScreen = () => {
     try {
       setLoading(true);
       const res = await axios.get(`${BASE_URL}/get-all-loans`, { withCredentials: true });
-      groupAndSetLoans(res.data);
-      // Reset stats when fetching all loans
+      console.log('fetchAllLoans response:', res.data);
+      const loans = res.data.loans || [];
+      if (!Array.isArray(loans)) {
+        console.error('Expected loans array, got:', res.data.loans);
+        setSnackbar({ open: true, message: 'Invalid loans data format', severity: 'error' });
+        setGroupedLoans({});
+        setFilteredLoans([]);
+        setStatus('');
+        return;
+      }
+      groupAndSetLoans(loans);
       setStats({
         totalLoans: 0,
         loansThisMonth: 0,
@@ -84,11 +139,15 @@ const LoansScreen = () => {
         disbursedPercentageThisMonth: 0,
       });
     } catch (error) {
+      console.error('fetchAllLoans error:', error.message);
       setSnackbar({
         open: true,
         message: error.response?.data?.message || 'Failed to fetch loans',
         severity: 'error',
       });
+      setGroupedLoans({});
+      setFilteredLoans([]);
+      setStatus('');
     } finally {
       setLoading(false);
     }
@@ -98,14 +157,33 @@ const LoansScreen = () => {
     try {
       setLoading(true);
       const res = await axios.get(`${BASE_URL}/loans/organization/${orgId}`, { withCredentials: true });
-      groupAndSetLoans(res.data.loans);
-      setStats(res.data.stats); // Set stats from API response
+      console.log('fetchLoansForOrg response:', res.data);
+      const loans = res.data.loans || [];
+      if (!Array.isArray(loans)) {
+        console.error('Expected loans array, got:', res.data.loans);
+        setSnackbar({ open: true, message: 'Invalid organization loans data format', severity: 'error' });
+        setGroupedLoans({});
+        setFilteredLoans([]);
+        setStatus('');
+        return;
+      }
+      groupAndSetLoans(loans);
+      setStats(res.data.stats || {
+        totalLoans: 0,
+        loansThisMonth: 0,
+        statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
+        disbursedPercentageThisMonth: 0,
+      });
     } catch (error) {
+      console.error('fetchLoansForOrg error:', error.message);
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Failed to fetch org loans',
+        message: error.response?.data?.message || 'Failed to fetch organization loans',
         severity: 'error',
       });
+      setGroupedLoans({});
+      setFilteredLoans([]);
+      setStatus('');
     } finally {
       setLoading(false);
     }
@@ -114,56 +192,44 @@ const LoansScreen = () => {
   const groupAndSetLoans = (loansArray) => {
     const grouped = {};
     loansArray.forEach((loan) => {
-      const statusKey = loan.status;
+      const statusKey = loan.status || 'UNKNOWN';
       if (!grouped[statusKey]) grouped[statusKey] = [];
+      const organizationName =
+        loan.organization?.name ||
+        loan.user?.employee?.organization?.name ||
+        'N/A';
+      if (!loan.user) console.warn('Loan missing user:', loan.id);
+      if (!organizationName) console.warn('Loan missing organization:', loan.id);
       grouped[statusKey].push({
         ...loan,
         customerName: `${loan.user?.firstName || ''} ${loan.user?.lastName || ''}`.trim() || 'N/A',
-        organizationName: loan.organization?.name || 'N/A',
+        organizationName,
         interestRate: loan.interestRate !== undefined ? (loan.interestRate * 100).toFixed(2) : 'N/A',
       });
     });
 
+    console.log('Grouped loans:', grouped);
     setGroupedLoans(grouped);
-    setFilteredLoans(grouped[status] || []);
+    const firstStatus = Object.keys(grouped).length > 0 ? Object.keys(grouped)[0] : '';
+    setStatus(firstStatus);
+    setFilteredLoans(grouped[firstStatus] || []);
   };
 
   const handleStatusChange = (event) => {
     const newStatus = event.target.value;
     setStatus(newStatus);
     setSearchQuery('');
-    setFilteredLoans(groupedLoans[newStatus] || []);
-  };
-
-  const handleSearch = (event) => {
-    const query = event.target.value.toLowerCase();
-    setSearchQuery(query);
-    const filtered = (groupedLoans[status] || []).filter(
-      (loan) =>
-        loan.customerName.toLowerCase().includes(query) ||
-        loan.organizationName.toLowerCase().includes(query) ||
-        loan.id.toString().includes(query)
-    );
-    setFilteredLoans(filtered);
-  };
-
-  const searchOrgs = async (value) => {
-    try {
-      setOrgSearch(value);
-      const res = await axios.get(`${BASE_URL}/organizations-search`, {
-        params: { search: value },
-        withCredentials: true,
-      });
-      setOrgOptions(
-        res.data.map((o) => ({
-          id: o.id,
-          name: o.name,
-          employeeCount: o.employeeCount || 0,
-        }))
-      );
-    } catch (error) {
-      console.error('Org search error:', error);
+    if (newStatus === 'ALL') {
+      setFilteredLoans(Object.values(groupedLoans).flat());
+    } else {
+      setFilteredLoans(groupedLoans[newStatus] || []);
     }
+  };
+
+  const handleOrgSearch = (event) => {
+    const value = event.target.value;
+    setOrgSearch(value);
+    debouncedSearchOrgs(value);
   };
 
   const columns = [
@@ -211,49 +277,59 @@ const LoansScreen = () => {
           <TextField
             placeholder="Search organization..."
             value={orgSearch}
-            onChange={(e) => searchOrgs(e.target.value)}
+            onChange={handleOrgSearch}
             variant="outlined"
             size="small"
             sx={{ width: '100%', maxWidth: 400, mb: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: theme.palette.text.secondary }} />
+                </InputAdornment>
+              ),
+              endAdornment: orgLoading ? (
+                <InputAdornment position="end">
+                  <CircularProgress size={20} />
+                </InputAdornment>
+              ) : null,
+            }}
           />
-          {orgOptions.length > 0 && (
-            <>
-              <Select
-                value={selectedOrg?.id || ''}
-                onChange={(e) => {
-                  const selected = orgOptions.find((o) => o.id === e.target.value);
-                  setSelectedOrg(selected);
-                  fetchLoansForOrg(selected.id);
+          <Select
+            value={selectedOrg?.id || ''}
+            onChange={(e) => {
+              const selected = orgOptions.find((o) => o.id === e.target.value);
+              setSelectedOrg(selected);
+              fetchLoansForOrg(selected.id);
+            }}
+            displayEmpty
+            fullWidth
+            size="small"
+            disabled={orgLoading || orgOptions.length === 0}
+          >
+            <MenuItem value="" disabled>
+              {orgLoading ? 'Loading...' : orgOptions.length === 0 ? 'No organizations found' : 'Select organization'}
+            </MenuItem>
+            {orgOptions.map((org) => (
+              <MenuItem key={org.id} value={org.id}>
+                {org.name} {org.employeeCount ? `(${org.employeeCount} employees)` : ''}
+              </MenuItem>
+            ))}
+          </Select>
+          {selectedOrg && (
+            <Box sx={{ textAlign: 'right', mt: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{ color: 'primary.main', cursor: 'pointer' }}
+                onClick={() => {
+                  setSelectedOrg(null);
+                  setOrgSearch('');
+                  setOrgOptions([]);
+                  fetchAllLoans();
                 }}
-                displayEmpty
-                fullWidth
-                size="small"
               >
-                <MenuItem value="" disabled>
-                  Select organization
-                </MenuItem>
-                {orgOptions.map((org) => (
-                  <MenuItem key={org.id} value={org.id}>
-                    {org.name} {org.employeeCount ? `(${org.employeeCount} employees)` : ''}
-                  </MenuItem>
-                ))}
-              </Select>
-              {selectedOrg && (
-                <Box sx={{ textAlign: 'right', mt: 1 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'primary.main', cursor: 'pointer' }}
-                    onClick={() => {
-                      setSelectedOrg(null);
-                      setOrgSearch('');
-                      fetchAllLoans();
-                    }}
-                  >
-                    Clear organization filter
-                  </Typography>
-                </Box>
-              )}
-            </>
+                Clear organization filter
+              </Typography>
+            </Box>
           )}
         </Box>
 
@@ -313,7 +389,7 @@ const LoansScreen = () => {
                           Status Counts This Month
                         </Typography>
                         {Object.keys(stats.statusCountsThisMonth).map((key) => (
-                          <Typography key={key} variant="body2" sx={{ color: loanStatusColors[key] }}>
+                          <Typography key={key} variant="body2" sx={{ color: loanStatusColors[key] || theme.palette.text.primary }}>
                             {key}: {stats.statusCountsThisMonth[key]}
                           </Typography>
                         ))}
@@ -321,6 +397,15 @@ const LoansScreen = () => {
                     </Card>
                   </Grid>
                 </Grid>
+              </Box>
+            )}
+
+            {/* No Loans Message */}
+            {Object.keys(groupedLoans).length === 0 && (
+              <Box sx={{ mb: 3, textAlign: 'center' }}>
+                <Typography variant="body1" color="text.secondary">
+                  {selectedOrg ? `No loans found for ${selectedOrg.name}` : 'No loans available'}
+                </Typography>
               </Box>
             )}
 
@@ -333,7 +418,12 @@ const LoansScreen = () => {
                   value={status}
                   label="Loan Status"
                   onChange={handleStatusChange}
+                  disabled={Object.keys(groupedLoans).length === 0}
                 >
+                  <MenuItem value="" disabled>
+                    Select status
+                  </MenuItem>
+                  <MenuItem value="ALL">All ({Object.values(groupedLoans).flat().length})</MenuItem>
                   {Object.keys(groupedLoans).map((key) => (
                     <MenuItem key={key} value={key}>
                       {key} ({groupedLoans[key]?.length || 0})
@@ -345,7 +435,7 @@ const LoansScreen = () => {
               <TextField
                 placeholder="Search by ID, Customer, or Organization"
                 value={searchQuery}
-                onChange={handleSearch}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 variant="outlined"
                 size="small"
                 sx={{ width: { xs: '100%', sm: 300 }, borderRadius: 2 }}

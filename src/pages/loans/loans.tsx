@@ -266,7 +266,7 @@ const groupAndSetLoans = (loansArray) => {
 }
 ,
     { field: 'mpesaStatus', headerName: 'Mpesa Status', width: 180, type: 'string' },
-    {field: 'disbursementDate', headerName: 'Disbursement Date', width: 200, type: 'string'},
+    {field: 'disbursementDate', headerName: 'Disbursement Date', width: 200},
   
 
 

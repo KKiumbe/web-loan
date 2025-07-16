@@ -266,15 +266,9 @@ const groupAndSetLoans = (loansArray) => {
 }
 ,
     { field: 'mpesaStatus', headerName: 'Mpesa Status', width: 180, type: 'string' },
-  {
-  field: 'disbursementDate',
-  headerName: 'Date Disbursed',
-  width: 200,
-  renderCell: (params) => {
-    const value = params?.row.disbursementDate;
-    return value ? format(new Date(value), 'dd MMM yyyy, hh:mm a') : '—';
-  }
-},
+    {field: 'disbursementDate', headerName: 'Disbursement Date', width: 200, type: 'string'},
+  
+
 
 
     { field: 'mpesaTrasactionId', headerName: 'Mpesa Transaction ID', width: 180, type: 'string' },

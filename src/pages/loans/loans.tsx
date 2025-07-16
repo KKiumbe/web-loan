@@ -249,21 +249,39 @@ const groupAndSetLoans = (loansArray) => {
     { field: 'amount', headerName: 'Amount (KES)', width: 150, type: 'number' },
     { field: 'interestRate', headerName: 'Interest (%)', width: 120, type: 'number' },
     { field: 'duration', headerName: 'Duration (days)', width: 120, type: 'number' },
-     {
-    field: 'createdAt',
-    headerName: 'Created At',
-    width: 200,
-    valueGetter: (params) =>
-      params.value ? format(new Date(params.value), 'dd MMM yyyy, HH:mm') : '—',
-  },
+    {
+  field: 'createdAt',
+  headerName: 'Created At',
+  width: 200,
+  renderCell: (params) => {
+    const value = params.row.createdAt;
+    if (!value) return '—';
+
+    try {
+      return format(new Date(value), 'dd MMM yyyy, HH:mm');
+    } catch {
+      return '—';
+    }
+  }
+}
+,
     { field: 'mpesaStatus', headerName: 'Mpesa Status', width: 180, type: 'string' },
      {
-    field: 'disbursementDate',
-    headerName: 'Date Disbursed',
-    width: 200,
-    valueGetter: (params) =>
-      params.value ? format(new Date(params.value), 'dd MMM yyyy, HH:mm') : '—',
-  },
+  field: 'disbursementDate',
+  headerName: 'Date Disbursed',
+  width: 200,
+  renderCell: (params) => {
+    const value = params.row.disbursementDate;
+    if (!value) return '—';
+
+    try {
+      return format(new Date(value), 'dd MMM yyyy, HH:mm');
+    } catch {
+      return '—';
+    }
+  }
+},
+
     { field: 'mpesaTrasactionId', headerName: 'Mpesa Transaction ID', width: 180, type: 'string' },
 
     { field: 'organizationName', headerName: 'Organization', width: 180 },

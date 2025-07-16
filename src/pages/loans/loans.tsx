@@ -25,7 +25,7 @@ import { getTheme } from '../../store/theme';
 import { useAuthStore } from '../../store/authStore';
 import TitleComponent from '../../components/title';
 import debounce from 'lodash/debounce';
-
+import { format } from 'date-fns';
 const loanStatusColors = {
   PENDING: '#FFA500',
   APPROVED: '#4CAF50',
@@ -195,6 +195,7 @@ const groupAndSetLoans = (loansArray) => {
     const organizationName =
       loan.organization?.name ||
       loan.user?.employee?.organization?.name ||
+      
       'N/A';
 
     if (!loan.user) console.warn('Loan missing user:', loan.id);
@@ -203,9 +204,16 @@ const groupAndSetLoans = (loansArray) => {
     grouped[statusKey].push({
       ...loan,
       customerName: `${loan.user?.firstName || ''} ${loan.user?.lastName || ''}`.trim() || 'N/A',
+      phoneNumber: loan.user?.phoneNumber || 'N/A',
+      email: loan.user?.email || 'N/A',
       organizationName,
       interestRate: loan.interestRate !== undefined ? (loan.interestRate * 100).toFixed(2) : 'N/A',
-      createdAt: loan.createdAt || null, // Ensure createdAt has a fallback
+      createdAt: loan?.createdAt || null, // Ensure createdAt has a fallback
+      duration: loan.duration || null, // Ensure duration has a fallback
+      mpesaStatus: loan.mpesaStatus || 'N/A',
+      disbursementDate: loan?.LoanPayout.createdAt || null,
+      loanPayout: loan.LoanPayout?.status || null,
+      mpesaTrasactionId: loan.mpesaTransactionId || 'N/A',
     });
   });
 
@@ -236,9 +244,31 @@ const groupAndSetLoans = (loansArray) => {
   const columns = [
     { field: 'id', headerName: 'ID', width: 90 },
     { field: 'customerName', headerName: 'Customer', width: 180 },
+    { field: 'phoneNumber', headerName: 'Phone Number', width: 180 },
+    { field: 'email', headerName: 'Email', width: 180 },
     { field: 'amount', headerName: 'Amount (KES)', width: 150, type: 'number' },
     { field: 'interestRate', headerName: 'Interest (%)', width: 120, type: 'number' },
+    { field: 'duration', headerName: 'Duration (days)', width: 120, type: 'number' },
+     {
+    field: 'createdAt',
+    headerName: 'Created At',
+    width: 200,
+    valueGetter: (params) =>
+      params.value ? format(new Date(params.value), 'dd MMM yyyy, HH:mm') : '—',
+  },
+    { field: 'mpesaStatus', headerName: 'Mpesa Status', width: 180, type: 'string' },
+     {
+    field: 'disbursementDate',
+    headerName: 'Date Disbursed',
+    width: 200,
+    valueGetter: (params) =>
+      params.value ? format(new Date(params.value), 'dd MMM yyyy, HH:mm') : '—',
+  },
+    { field: 'mpesaTrasactionId', headerName: 'Mpesa Transaction ID', width: 180, type: 'string' },
+
     { field: 'organizationName', headerName: 'Organization', width: 180 },
+   
+
     {
       field: 'status',
       headerName: 'Status',

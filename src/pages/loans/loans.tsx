@@ -249,21 +249,7 @@ const groupAndSetLoans = (loansArray) => {
         </Typography>
       ),
     },
-    {
-      field: 'createdAt',
-      headerName: 'Requested On',
-      width: 180,
-      valueGetter: ({ row }) =>
-        row.createdAt
-          ? new Date(row.createdAt).toLocaleString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          : 'N/A',
-    },
+   
   ];
 
   return (

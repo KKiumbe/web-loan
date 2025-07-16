@@ -37,7 +37,7 @@ const loanStatusColors = {
 
 const LoansScreen = () => {
   const [groupedLoans, setGroupedLoans] = useState({});
- const [filteredLoans, setFilteredLoans] = useState<Loan[]>([]);
+ const [filteredLoans, setFilteredLoans] = useState([]);
   const [status, setStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -116,104 +116,105 @@ const [orgOptions, setOrgOptions] = useState<{ id: any; name: any; employeeCount
 
     fetchAllLoans();
   }, [currentUser, navigate]);
-
-  const fetchAllLoans = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${BASE_URL}/get-all-loans`, { withCredentials: true });
-      console.log('fetchAllLoans response:', res.data);
-      const loans = res.data.loans || [];
-      if (!Array.isArray(loans)) {
-        console.error('Expected loans array, got:', res.data.loans);
-        setSnackbar({ open: true, message: 'Invalid loans data format', severity: 'error' });
-        setGroupedLoans({});
-        setFilteredLoans([]);
-        setStatus('');
-        return;
-      }
-      groupAndSetLoans(loans);
-      setStats({
-        totalLoans: 0,
-        loansThisMonth: 0,
-        statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
-        disbursedPercentageThisMonth: 0,
-      });
-    } catch (error) {
-      console.error('fetchAllLoans error:', error.message);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Failed to fetch loans',
-        severity: 'error',
-      });
-      setGroupedLoans({});
-      setFilteredLoans([]);
-      setStatus('');
-    } finally {
-      setLoading(false);
+const fetchAllLoans = async () => {
+  try {
+    setLoading(true);
+    const res = await axios.get(`${BASE_URL}/get-all-loans`, { withCredentials: true });
+    console.log('fetchAllLoans response:', res.data);
+    const loans = Array.isArray(res.data.loans) ? res.data.loans : [];
+    if (!loans.length) {
+      console.warn('No loans returned from API');
+      setSnackbar({ open: true, message: 'No loans found', severity: 'info' });
     }
-  };
-
-  const fetchLoansForOrg = async (orgId) => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${BASE_URL}/loans/organization/${orgId}`, { withCredentials: true });
-      console.log('fetchLoansForOrg response:', res.data);
-      const loans = res.data.loans || [];
-      if (!Array.isArray(loans)) {
-        console.error('Expected loans array, got:', res.data.loans);
-        setSnackbar({ open: true, message: 'Invalid organization loans data format', severity: 'error' });
-        setGroupedLoans({});
-        setFilteredLoans([]);
-        setStatus('');
-        return;
-      }
-      groupAndSetLoans(loans);
-      setStats(res.data.stats || {
-        totalLoans: 0,
-        loansThisMonth: 0,
-        statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
-        disbursedPercentageThisMonth: 0,
-      });
-    } catch (error) {
-      console.error('fetchLoansForOrg error:', error.message);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Failed to fetch organization loans',
-        severity: 'error',
-      });
-      setGroupedLoans({});
-      setFilteredLoans([]);
-      setStatus('');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const groupAndSetLoans = (loansArray) => {
-    const grouped = {};
-    loansArray.forEach((loan) => {
-      const statusKey = loan.status || 'UNKNOWN';
-      if (!grouped[statusKey]) grouped[statusKey] = [];
-      const organizationName =
-        loan.organization?.name ||
-        loan.user?.employee?.organization?.name ||
-        'N/A';
-      if (!loan.user) console.warn('Loan missing user:', loan.id);
-      if (!organizationName) console.warn('Loan missing organization:', loan.id);
-      grouped[statusKey].push({
-        ...loan,
-        customerName: `${loan.user?.firstName || ''} ${loan.user?.lastName || ''}`.trim() || 'N/A',
-        organizationName,
-        interestRate: loan.interestRate !== undefined ? (loan.interestRate * 100).toFixed(2) : 'N/A',
-      });
+    groupAndSetLoans(loans);
+    setStats({
+      totalLoans: 0,
+      loansThisMonth: 0,
+      statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
+      disbursedPercentageThisMonth: 0,
     });
+  } catch (error) {
+    console.error('fetchAllLoans error:', error.message);
+    setSnackbar({
+      open: true,
+      message: error.response?.data?.message || 'Failed to fetch loans',
+      severity: 'error',
+    });
+    setGroupedLoans({});
+    setFilteredLoans([]);
+    setStatus('');
+  } finally {
+    setLoading(false);
+  }
+};
 
-    console.log('Grouped loans:', grouped);
-    setGroupedLoans(grouped);
-    const firstStatus = Object.keys(grouped).length > 0 ? Object.keys(grouped)[0] : '';
-    setStatus(firstStatus);
-    setFilteredLoans(grouped[firstStatus] || []);
-  };
+const fetchLoansForOrg = async (orgId) => {
+  try {
+    setLoading(true);
+    const res = await axios.get(`${BASE_URL}/loans/organization/${orgId}`, { withCredentials: true });
+    console.log('fetchLoansForOrg response:', res.data);
+    const loans = Array.isArray(res.data.loans) ? res.data.loans : [];
+    if (!loans.length) {
+      console.warn('No loans returned for organization:', orgId);
+      setSnackbar({ open: true, message: 'No loans found for this organization', severity: 'info' });
+    }
+    groupAndSetLoans(loans);
+    setStats(res.data.stats || {
+      totalLoans: 0,
+      loansThisMonth: 0,
+      statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
+      disbursedPercentageThisMonth: 0,
+    });
+  } catch (error) {
+    console.error('fetchLoansForOrg error:', error.message);
+    setSnackbar({
+      open: true,
+      message: error.response?.data?.message || 'Failed to fetch organization loans',
+      severity: 'error',
+    });
+    setGroupedLoans({});
+    setFilteredLoans([]);
+    setStatus('');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const groupAndSetLoans = (loansArray) => {
+  const grouped = {};
+  loansArray.forEach((loan) => {
+    // Skip invalid loan objects
+    if (!loan || !loan.id) {
+      console.warn('Invalid loan object:', loan);
+      return;
+    }
+
+    const statusKey = loan.status || 'UNKNOWN';
+    if (!grouped[statusKey]) grouped[statusKey] = [];
+
+    const organizationName =
+      loan.organization?.name ||
+      loan.user?.employee?.organization?.name ||
+      'N/A';
+
+    if (!loan.user) console.warn('Loan missing user:', loan.id);
+    if (!organizationName) console.warn('Loan missing organization:', loan.id);
+
+    grouped[statusKey].push({
+      ...loan,
+      customerName: `${loan.user?.firstName || ''} ${loan.user?.lastName || ''}`.trim() || 'N/A',
+      organizationName,
+      interestRate: loan.interestRate !== undefined ? (loan.interestRate * 100).toFixed(2) : 'N/A',
+      createdAt: loan.createdAt || null, // Ensure createdAt has a fallback
+    });
+  });
+
+  console.log('Grouped loans:', grouped);
+  setGroupedLoans(grouped);
+  const firstStatus = Object.keys(grouped).length > 0 ? Object.keys(grouped)[0] : '';
+  setStatus(firstStatus);
+  setFilteredLoans(grouped[firstStatus] || []);
+};
 
   const handleStatusChange = (event) => {
     const newStatus = event.target.value;

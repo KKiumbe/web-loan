@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Tabs,
   Tab,
@@ -13,62 +13,33 @@ import {
   Paper,
   Button,
   LinearProgress,
-  ThemeProvider,
   Snackbar,
   Alert,
   Container,
 } from '@mui/material';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import axios from 'axios';
-import { useAuthStore } from '../../store/authStore'; // Adjust path if needed
+import { useAuthStore } from '../../store/authStore';
 import { useNavigate } from 'react-router-dom';
-import { getTheme } from '../../store/theme'; // Adjust path if needed
+import { getTheme } from '../../store/theme';
 import TitleComponent from '../../components/title';
+import { format } from 'date-fns';
+import { body } from 'framer-motion/m';
 
-const BASEURL = import.meta.env.VITE_BASE_URL || "https://taqa.co.ke/api";
-const reportData = {
-
- 
-  customers: [
-    { name: 'All Customers', description: 'List of all active customers', endpoint: `${BASEURL}/reports/customers` },
-    { name: 'Dormant Customers', description: 'Customers with no recent activity', endpoint: `${BASEURL}/reports/dormant` },
-    {
-      name: 'Customers by Collection Day',
-      description: 'Customers categorized by day of service',
-      endpoint: `${BASEURL}/reports/customer-per-collection-day`,
-    },
-  ],
-  invoices: [
-    { name: 'Monthly Invoices', description: 'Invoices issued this month', endpoint: `${BASEURL}/reports/monthly-invoice` },
-    { name: 'Age Analysis', description: 'Invoice aging report', endpoint: `${BASEURL}/reports/age-analysis` },
-    {
-      name: 'High Debt Customers',
-      description: 'Customers with arrears > 2x monthly charge',
-      endpoint: `${BASEURL}/reports/customers-debt-high`,
-    },
-    {
-      name: 'Low Debt Customers',
-      description: 'Customers with arrears < monthly charge',
-      endpoint: `${BASEURL}/reports/customers-debt-low`,
-    },
-  ],
-  payments: [
-    { name: 'Monthly Payments', description: 'All payments this month', endpoint: `${BASEURL}/reports/payments` },
-    { name: 'Mpesa Payments', description: 'Payments via Mpesa', endpoint: `${BASEURL}/reports/mpesa` },
-    { name: 'All Receipts', description: 'All issued receipts', endpoint: `${BASEURL}/reports/receipts` },
-    { name: 'Income Report', description: 'Total income summary', endpoint: `${BASEURL}/reports/income` },
-  ],
-};
+const BASEURL = import.meta.env.VITE_BASE_URL;
 
 const ReportScreen = () => {
   const [activeTab, setActiveTab] = useState(0);
-  const [downloading, setDownloading] = useState({}); // Track downloading state per endpoint
-  const [progress, setProgress] = useState({}); // Track download progress per endpoint
+  const [downloading, setDownloading] = useState({});
+  const [progress, setProgress] = useState({});
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [selectedDate, setSelectedDate] = useState(new Date()); // calendar-style input
+
   const currentUser = useAuthStore((state) => state.currentUser);
   const navigate = useNavigate();
   const theme = getTheme();
 
-  // Check if user is logged in
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
@@ -79,32 +50,91 @@ const ReportScreen = () => {
     setActiveTab(newValue);
   };
 
-  const handleDownload = async (endpoint, reportName) => {
+  const reportData = {
+    customers: [
+      {
+        name: 'All Employees',
+        description: 'List of all Employees per org',
+        endpoint: `${BASEURL}/employees-per-org`,
+        method: 'get',
+      },
+    ],
+   
+
+    loans: [
+  {
+    name: 'Loans per Organisation',
+    description: 'Loans per organisation',
+    endpoint: `${BASEURL}/loans-per-org`,
+    method: 'post',
+    requiresBody: true,
+  },
+  {
+    name: 'Loans Summary per Organisation',
+    description: 'Loans Summary per organisation',
+    endpoint: `${BASEURL}/loan-summary-per-org`,
+    method: 'post',
+    requiresBody: true,
+  },
+],
+
+  };
+
+  const handleDownload = async (report) => {
+    const { endpoint, name, method, requiresBody } = report;
+
+    if (requiresBody && !selectedDate) {
+      setNotification({
+        open: true,
+        message: 'Please select a month first',
+        severity: 'error',
+      });
+      return;
+    }
+
+    const formattedMonth = selectedDate ? format(selectedDate, 'yyyy-MM') : '';
+
     setDownloading((prev) => ({ ...prev, [endpoint]: true }));
     setProgress((prev) => ({ ...prev, [endpoint]: 0 }));
 
     try {
-      const response = await axios.get(endpoint, {
+      const config = {
         responseType: 'blob',
         withCredentials: true,
         onDownloadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setProgress((prev) => ({ ...prev, [endpoint]: percentCompleted }));
         },
+      };
+
+      // Send month in the request body for GET requests
+      const response = await axios({
+        method, // Use 'get' as specified in reportData
+        url: endpoint, // No query parameters
+        data: requiresBody ? { month: formattedMonth } : undefined, // Send month in body
+        ...config,
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${reportName.toLowerCase().replace(/\s+/g, '-')}.pdf`); // Cleaner filename
+      link.href = blobUrl;
+      link.setAttribute('download', `${name.toLowerCase().replace(/\s+/g, '-')}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
 
-      setNotification({ open: true, message: `${reportName} downloaded successfully!`, severity: 'success' });
+      setNotification({
+        open: true,
+        message: `${name} downloaded successfully!`,
+        severity: 'success',
+      });
     } catch (error) {
       console.error('Error downloading report:', error);
-      setNotification({ open: true, message: 'Failed to download report. Please try again.', severity: 'error' });
+      setNotification({
+        open: true,
+        message: error.response?.data?.message || 'Failed to download report',
+        severity: 'error',
+      });
     } finally {
       setDownloading((prev) => ({ ...prev, [endpoint]: false }));
       setProgress((prev) => ({ ...prev, [endpoint]: 0 }));
@@ -115,54 +145,76 @@ const ReportScreen = () => {
     setNotification((prev) => ({ ...prev, open: false }));
   };
 
-  const renderTabContent = (tabData) => (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>Report Name</TableCell>
-            <TableCell>Description</TableCell>
-            <TableCell>Action</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {tabData.map((report, index) => (
-            <TableRow key={index}>
-              <TableCell>{report.name}</TableCell>
-              <TableCell>{report.description}</TableCell>
-              <TableCell>
-                <Box sx={{ position: 'relative' }}>
-                  <Button
-                    variant="contained"
-                    sx={{ backgroundColor: theme.palette.greenAccent.main }}
-                    onClick={() => handleDownload(report.endpoint, report.name)}
-                    disabled={downloading[report.endpoint]}
-                  >
-                    {downloading[report.endpoint] ? 'Downloading...' : 'Download'}
-                  </Button>
-                  {downloading[report.endpoint] && (
-                    <LinearProgress
-                      variant="determinate"
-                      value={progress[report.endpoint] || 0}
-                      sx={{ position: 'absolute', bottom: -4, left: 0, right: 0 }}
-                    />
-                  )}
-                </Box>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
+  const renderTabContent = (tabData) => {
+    if (!tabData || !Array.isArray(tabData)) {
+      return <Typography>No reports available for this category.</Typography>;
+    }
+
+    return (
+      <>
+        {activeTab === 1 && (
+          <Box sx={{ mb: 2 }}>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                views={['year', 'month']}
+                label="Select Month"
+                minDate={new Date('2022-01-01')}
+                maxDate={new Date('2026-12-31')}
+                value={selectedDate}
+                onChange={(newValue) => setSelectedDate(newValue)}
+                slotProps={{ textField: { variant: 'outlined', sx: { mr: 2 } } }}
+              />
+            </LocalizationProvider>
+          </Box>
+        )}
+
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Report Name</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell>Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {tabData.map((report, index) => (
+                <TableRow key={index}>
+                  <TableCell>{report.name}</TableCell>
+                  <TableCell>{report.description}</TableCell>
+                  <TableCell>
+                    <Box sx={{ position: 'relative' }}>
+                      <Button
+                        variant="contained"
+                        sx={{ backgroundColor: theme.palette.greenAccent.main }}
+                        onClick={() => handleDownload(report)}
+                        disabled={downloading[report.endpoint]}
+                      >
+                        {downloading[report.endpoint] ? 'Downloading...' : 'Download'}
+                      </Button>
+                      {downloading[report.endpoint] && (
+                        <LinearProgress
+                          variant="determinate"
+                          value={progress[report.endpoint] || 0}
+                          sx={{ position: 'absolute', bottom: -4, left: 0, right: 0 }}
+                        />
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </>
+    );
+  };
 
   return (
-   
-    <Container sx={{ width: '100%', ml:20}}>
-
-<Box >
+    <Container sx={{ width: '100%', ml: 20 }}>
+      <Box>
         <Typography variant="h5" gutterBottom>
-         <TitleComponent title="Reports Center" />
+          <TitleComponent title="Reports Center" />
         </Typography>
         <Tabs
           value={activeTab}
@@ -180,13 +232,13 @@ const ReportScreen = () => {
             '& .Mui-selected': { backgroundColor: theme.palette.greenAccent.main },
           }}
         >
-          <Tab label="Customers" />
-          <Tab label="Invoices" />
-          <Tab label="Payments" />
+          <Tab label="Employees" />
+          <Tab label="Loans" />
         </Tabs>
-        <Box sx={{ mt: 2 }}>{activeTab === 0 && renderTabContent(reportData.customers)}
-          {activeTab === 1 && renderTabContent(reportData.invoices)}
-          {activeTab === 2 && renderTabContent(reportData.payments)}</Box>
+        <Box sx={{ mt: 2 }}>
+          {activeTab === 0 && renderTabContent(reportData.customers)}
+          {activeTab === 1 && renderTabContent(reportData.loans)}
+        </Box>
       </Box>
       <Snackbar
         open={notification.open}
@@ -199,7 +251,6 @@ const ReportScreen = () => {
         </Alert>
       </Snackbar>
     </Container>
-  
   );
 };
 

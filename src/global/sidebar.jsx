@@ -255,24 +255,7 @@ const Sidebar = () => {
               </ListItemIcon>
               {open && <ListItemText primary="Sent SMS" sx={{ fontSize: "0.8rem" }} />}
             </ListItem>
-            <ListItem button sx={{ pl: 3, py: 0.5 }} onClick={() => navigate("/send-sms")}>
-              <ListItemIcon sx={{ minWidth: 30 }}>
-                <Send sx={{ fontSize: 20 }} />
-              </ListItemIcon>
-              {open && <ListItemText primary="Send SMS" sx={{ fontSize: "0.8rem" }} />}
-            </ListItem>
-            <ListItem button sx={{ pl: 3, py: 0.5 }} onClick={() => navigate("/send-bills")}>
-              <ListItemIcon sx={{ minWidth: 30 }}>
-                <Receipt sx={{ fontSize: 20 }} />
-              </ListItemIcon>
-              {open && <ListItemText primary="Send Bills" sx={{ fontSize: "0.8rem" }} />}
-            </ListItem>
-            <ListItem button sx={{ pl: 3, py: 0.5 }} onClick={() => navigate("/debt-management")}>
-              <ListItemIcon sx={{ minWidth: 30 }}>
-                <MonetizationOn sx={{ fontSize: 20 }} />
-              </ListItemIcon>
-              {open && <ListItemText primary="Debt Mgmt" sx={{ fontSize: "0.8rem" }} />}
-            </ListItem>
+            
           </List>
         </Collapse>
 

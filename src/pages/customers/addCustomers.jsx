@@ -124,7 +124,7 @@ export default function CreateEmployeeScreen() {
   };
 
   return (
-    <Box sx={{ bgcolor: theme?.palette?.background?.default, minHeight: '100vh', width: '100vw', p: { xs: 2, sm: 4 } }}>
+    <Box sx={{  minHeight: '100vh', width: '100vw',}}>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 4, color: theme.palette.text.primary }}>
         <TitleComponent title="Add Employee" />
       </Typography>
@@ -133,10 +133,11 @@ export default function CreateEmployeeScreen() {
           p: { xs: 3, sm: 4 },
           borderRadius: 3,
           boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
-          bgcolor: theme.palette.background.paper,
+       
           width: '100%',
           maxWidth: 800,
-          mx: 'auto',
+          mx: '10%',
+          my: 'auto',
         }}
       >
         <form onSubmit={handleSubmit}>

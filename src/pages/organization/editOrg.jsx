@@ -74,12 +74,7 @@ const EditOrganization = () => {
           building: tenantData.building || "",
           street: tenantData.street || "",
           website: tenantData.website || "",
-          approvalSteps: tenantData.approvalSteps?.toString() || "",
-          loanLimitMultiplier: tenantData.loanLimitMultiplier?.toString() || "",
-          interestRate: tenantData.interestRate?.toString() || "",
-          interestRateType: tenantData.interestRateType || "",
-          dailyInterestRate: tenantData.dailyInterestRate?.toString() || "",
-          baseInterestRate: tenantData.baseInterestRate?.toString() || "",
+         
         });
       } catch (err) {
         setSnackbar({
@@ -132,41 +127,7 @@ const EditOrganization = () => {
     if (tenant.website && !/^https?:\/\/[^\s/$.?#].[^\s]*$/.test(tenant.website)) {
       newErrors.website = "Invalid website URL";
     }
-    if (tenant.approvalSteps !== "") {
-      const steps = Number(tenant.approvalSteps);
-      if (!Number.isInteger(steps) || steps < 0) {
-        newErrors.approvalSteps = "Approval steps must be a non-negative integer";
-      }
-    }
-    if (tenant.loanLimitMultiplier !== "") {
-      const multiplier = Number(tenant.loanLimitMultiplier);
-      if (isNaN(multiplier) || multiplier <= 0) {
-        newErrors.loanLimitMultiplier = "Loan limit multiplier must be a positive number";
-      }
-    }
-    if (tenant.interestRate !== "") {
-      const rate = Number(tenant.interestRate);
-      if (isNaN(rate) || rate < 0) {
-        newErrors.interestRate = "Interest rate must be a non-negative number";
-      }
-    }
-    if (tenant.interestRateType !== "") {
-      if (!["MONTHLY", "DAILY"].includes(tenant.interestRateType)) {
-        newErrors.interestRateType = "Interest rate type must be MONTHLY or DAILY";
-      }
-    }
-    if (tenant.dailyInterestRate !== "") {
-      const dailyRate = Number(tenant.dailyInterestRate);
-      if (isNaN(dailyRate) || dailyRate < 0) {
-        newErrors.dailyInterestRate = "Daily interest rate must be a non-negative number";
-      }
-    }
-    if (tenant.baseInterestRate !== "") {
-      const baseRate = Number(tenant.baseInterestRate);
-      if (isNaN(baseRate) || baseRate < 0) {
-        newErrors.baseInterestRate = "Base interest rate must be a non-negative number";
-      }
-    }
+    
     return newErrors;
   };
 
@@ -192,12 +153,7 @@ const EditOrganization = () => {
         building: tenant.building || undefined,
         street: tenant.street || undefined,
         website: tenant.website || undefined,
-        approvalSteps: tenant.approvalSteps !== "" ? Number(tenant.approvalSteps) : undefined,
-        loanLimitMultiplier: tenant.loanLimitMultiplier !== "" ? Number(tenant.loanLimitMultiplier) : undefined,
-        interestRate: tenant.interestRate !== "" ? Number(tenant.interestRate) : undefined,
-        interestRateType: tenant.interestRateType || undefined,
-        dailyInterestRate: tenant.dailyInterestRate !== "" ? Number(tenant.dailyInterestRate) : undefined,
-        baseInterestRate: tenant.baseInterestRate !== "" ? Number(tenant.baseInterestRate) : undefined,
+      
       };
 
       // Update tenant and organization details
@@ -390,91 +346,10 @@ const EditOrganization = () => {
                 helperText={errors.website}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Approval Steps"
-                value={tenant.approvalSteps || ""}
-                onChange={(e) => handleFieldChange("approvalSteps", e.target.value)}
-                variant="outlined"
-                type="number"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.approvalSteps}
-                helperText={errors.approvalSteps || "Enter 0 for auto-approval, 1-3 for manual approval"}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Loan Limit Multiplier (%)"
-                value={tenant.loanLimitMultiplier || ""}
-                onChange={(e) => handleFieldChange("loanLimitMultiplier", e.target.value)}
-                variant="outlined"
-                type="number"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.loanLimitMultiplier}
-                helperText={errors.loanLimitMultiplier || "Percentage of salary, 100% for no limit"}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Interest Rate (%)"
-                value={tenant.interestRate || ""}
-                onChange={(e) => handleFieldChange("interestRate", e.target.value)}
-                variant="outlined"
-                type="number"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.interestRate}
-                helperText={errors.interestRate}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth variant="outlined" error={!!errors.interestRateType}>
-                <InputLabel>Interest Rate Type</InputLabel>
-                <Select
-                  label="Interest Rate Type"
-                  value={tenant.interestRateType || ""}
-                  onChange={(e) => handleFieldChange("interestRateType", e.target.value)}
-                  sx={{ bgcolor: theme.palette.background.paper }}
-                >
-                  <MenuItem value="">None</MenuItem>
-                  <MenuItem value="MONTHLY">Monthly</MenuItem>
-                  <MenuItem value="DAILY">Daily</MenuItem>
-                </Select>
-                {errors.interestRateType && (
-                  <Typography variant="caption" color="error">
-                    {errors.interestRateType}
-                  </Typography>
-                )}
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Daily Interest Rate (%)"
-                value={tenant.dailyInterestRate || ""}
-                onChange={(e) => handleFieldChange("dailyInterestRate", e.target.value)}
-                variant="outlined"
-                type="number"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.dailyInterestRate}
-                helperText={errors.dailyInterestRate}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Base Interest Rate (%)"
-                value={tenant.baseInterestRate || ""}
-                onChange={(e) => handleFieldChange("baseInterestRate", e.target.value)}
-                variant="outlined"
-                type="number"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.baseInterestRate}
-                helperText={errors.baseInterestRate}
-              />
-            </Grid>
+          
+        
+         
+      
             <Grid item xs={12}>
               <Typography
                 variant="subtitle1"

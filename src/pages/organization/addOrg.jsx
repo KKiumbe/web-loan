@@ -161,11 +161,11 @@ export default function CreateOrganizationScreen() {
   };
 
   return (
-    <Box sx={{ bgcolor: theme?.palette?.background?.paper, minHeight: '100vh', p: 4 }}>
+    <Box sx={{  minHeight: '100vh', p: 4  }}>
       <Typography variant="h5" sx={{ mb: 3 }}>
         <TitleComponent title="Add Organization" />
       </Typography>
-      <Paper sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
+      <Paper sx={{ p: 5, maxWidth: 950,  mx: '5%', }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12}>

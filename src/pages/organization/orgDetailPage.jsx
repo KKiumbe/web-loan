@@ -136,7 +136,7 @@ export default function OrganizationDetailScreen() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => navigate(`/organizations/edit/${orgId}`)}
+              onClick={() => navigate(`/edit-org/${orgId}`)}
               startIcon={<EditIcon />}
               sx={{
                 borderRadius: 2,

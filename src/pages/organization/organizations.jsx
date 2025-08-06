@@ -67,8 +67,10 @@ const OrganizationsScreen = () => {
       setLoading(true);
       const response = await axios.get(`${BASE_URL}/organizations`, { withCredentials: true });
       const data = response.data.map((org) => ({
-        ...org,
+        ...org, 
         createdAt: org.createdAt ? new Date(org.createdAt).toISOString() : '',
+        interestRate: org.interestRate ? org.interestRate.toString() * 100 : '',
+
       }));
       setOrganizations(data);
       setTotalOrganizations(data.length);
@@ -115,7 +117,7 @@ const OrganizationsScreen = () => {
     { field: 'totalLoanAmount', headerName: 'Total Loan (KES)', width: 180, type: 'number' },
     { field: 'approvedLoanAmount', headerName: 'Approved Loan (KES)', width: 200, type: 'number' },
     { field: 'approvalSteps', headerName: 'Approval Steps', width: 150 },
-    { field: 'interestRate', headerName: 'Interest Rate', width: 150, type: 'number' },
+    { field: 'interestRate', headerName: 'Interest Rate(%)', width: 150, type: 'number' },
     {
       field: 'createdAt',
       headerName: 'Created At',

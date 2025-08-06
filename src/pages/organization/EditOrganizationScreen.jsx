@@ -7,6 +7,11 @@ import {
   TextField,
   Button,
   Snackbar,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -20,10 +25,13 @@ export default function EditOrg() {
     approvalSteps: '',
     loanLimitMultiplier: '',
     interestRate: '',
+    interestRateType: '',
+    dailyInterestRate: '',
+    baseInterestRate: '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const { id } = useParams();
   const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -31,71 +39,142 @@ export default function EditOrg() {
   const theme = getTheme();
   const currentUser = useAuthStore((state) => state.currentUser);
 
-  useEffect(() => {
-    if (!currentUser) return;
+  // Convert decimal to percentage for display
 
-    axios.get(`${BASE_URL}/organizations/${id}`, { withCredentials: true })
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    axios
+      .get(`${BASE_URL}/organizations/${id}`, { withCredentials: true })
       .then((res) => {
         const org = res.data;
+        console.log(`response data ${JSON.stringify(org)}`);
         setFormData({
           name: org.name || '',
           approvalSteps: org.approvalSteps?.toString() || '',
-          loanLimitMultiplier: org.loanLimitMultiplier?.toString() || '',
-          interestRate: org.interestRate?.toString() || '',
+          loanLimitMultiplier: org.loanLimitMultiplier || '',
+          interestRate: org.interestRateType === 'MONTHLY' ? org.interestRate || '' : '',
+          interestRateType: org.interestRateType || '',
+          dailyInterestRate: org.interestRateType === 'DAILY' ? org.dailyInterestRate || '' : '',
+          baseInterestRate: org.baseInterestRate || '',
         });
       })
       .catch((err) => {
         console.error('Failed to load organization:', err);
-        setSnackbar({ open: true, message: 'Failed to load organization data' });
+        setSnackbar({ open: true, message: 'Failed to load organization data', severity: 'error' });
       });
-  }, [id, currentUser]);
+  }, [id, currentUser, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const newFormData = { ...prev, [name]: value };
+      // Clear irrelevant interest rate when changing interestRateType
+      if (name === 'interestRateType') {
+        if (value === 'MONTHLY') {
+          newFormData.dailyInterestRate = '';
+        } else if (value === 'DAILY') {
+          newFormData.interestRate = '';
+        } else {
+          newFormData.interestRate = '';
+          newFormData.dailyInterestRate = '';
+        }
+      }
+      return newFormData;
+    });
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  const validate = () => {
+    const newErrors = {};
 
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
 
-const validate = () => {
-  const newErrors = {};
+    if (formData.approvalSteps !== '') {
+      const approval = Number(formData.approvalSteps);
+      if (!Number.isInteger(approval) || approval < 0 || approval > 3) {
+        newErrors.approvalSteps = 'Must be a number between 0 and 3';
+      }
+    }
 
-  if (!formData.name.trim()) {
-    newErrors.name = 'Name is required';
-  }
+    if (formData.loanLimitMultiplier !== '') {
+      const loanLimit = Number(formData.loanLimitMultiplier);
+      if (isNaN(loanLimit) || loanLimit < 1 || loanLimit > 10000) {
+        newErrors.loanLimitMultiplier = 'Must be between 1 and 10000 (e.g., 150 for 150%)';
+      }
+    }
 
-  const approval = Number(formData.approvalSteps);
-  if (!Number.isInteger(approval) || approval < 0 || approval > 3) {
-    newErrors.approvalSteps = 'Must be a number between 0 and 3, 0 if you dont need approval';
-  }
+    if (formData.interestRateType !== '') {
+      if (!['MONTHLY', 'DAILY'].includes(formData.interestRateType)) {
+        newErrors.interestRateType = 'Must be MONTHLY or DAILY';
+      } else {
+        if (formData.interestRateType === 'MONTHLY') {
+          if (formData.interestRate === '') {
+            newErrors.interestRate = 'Monthly interest rate is required when type is MONTHLY';
+          } else {
+            const interest = Number(formData.interestRate);
+            if (isNaN(interest) || interest < 0 || interest > 100) {
+              newErrors.interestRate = 'Must be between 0 and 100 (e.g., 5 for 5%)';
+            }
+          }
+          if (formData.dailyInterestRate !== '') {
+            newErrors.dailyInterestRate = 'Daily interest rate should not be set when type is MONTHLY';
+          }
+        } else if (formData.interestRateType === 'DAILY') {
+          if (formData.dailyInterestRate === '') {
+            newErrors.dailyInterestRate = 'Daily interest rate is required when type is DAILY';
+          } else {
+            const dailyInterest = Number(formData.dailyInterestRate);
+            if (isNaN(dailyInterest) || dailyInterest < 0 || dailyInterest > 100) {
+              newErrors.dailyInterestRate = 'Must be between 0 and 100 (e.g., 1 for 1%)';
+            }
+          }
+          if (formData.interestRate !== '') {
+            newErrors.interestRate = 'Monthly interest rate should not be set when type is DAILY';
+          }
+        }
+      }
+    } else {
+      if (formData.interestRate !== '') {
+        newErrors.interestRate = 'Interest rate type must be selected when setting monthly interest rate';
+      }
+      if (formData.dailyInterestRate !== '') {
+        newErrors.dailyInterestRate = 'Interest rate type must be selected when setting daily interest rate';
+      }
+    }
 
-  const loanLimit = Number(formData.loanLimitMultiplier);
-  if (isNaN(loanLimit) || loanLimit < 1 || loanLimit > 100) {
-    newErrors.loanLimitMultiplier = 'Must be between 1 and 100';
-  }
+    if (formData.baseInterestRate !== '') {
+      const baseInterest = Number(formData.baseInterestRate);
+      if (isNaN(baseInterest) || baseInterest < 0 || baseInterest > 100) {
+        newErrors.baseInterestRate = 'Must be between 0 and 100 (e.g., 5 for 5%)';
+      }
+    }
 
-  const interest = Number(formData.interestRate);
-  if (isNaN(interest) || interest < 0 || interest > 100) {
-    newErrors.interestRate = 'Must be between 0 and 100';
-  }
-
-  return newErrors;
-};
+    return newErrors;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
     if (Object.keys(validationErrors).length) {
       setErrors(validationErrors);
+      setSnackbar({ open: true, message: 'Please correct the errors in the form', severity: 'error' });
       return;
     }
 
     const payload = {
       name: formData.name.trim(),
-      approvalSteps: Number(formData.approvalSteps),
-      loanLimitMultiplier: Number(formData.loanLimitMultiplier),
-      interestRate: Number(formData.interestRate),
+      approvalSteps: formData.approvalSteps !== '' ? Number(formData.approvalSteps) : undefined,
+      loanLimitMultiplier: formData.loanLimitMultiplier !== '' ? formData.loanLimitMultiplier : undefined,
+      interestRate: formData.interestRateType === 'MONTHLY' && formData.interestRate !== '' ? formData.interestRate : undefined,
+      interestRateType: formData.interestRateType || undefined,
+      dailyInterestRate: formData.interestRateType === 'DAILY' && formData.dailyInterestRate !== '' ? formData.dailyInterestRate : undefined,
+      baseInterestRate: formData.baseInterestRate !== '' ? formData.baseInterestRate : undefined,
     };
 
     setLoading(true);
@@ -103,15 +182,19 @@ const validate = () => {
       const res = await axios.put(`${BASE_URL}/organizations/${id}`, payload, {
         withCredentials: true,
       });
-      setSnackbar({ open: true, message: res.data.message || 'Organization updated successfully' });
+      setSnackbar({ open: true, message: res.data.message || 'Organization updated successfully', severity: 'success' });
       setTimeout(() => navigate('/organizations'), 2000);
     } catch (err) {
       console.error('Update failed:', err);
       const msg = err.response?.data?.error || 'Update failed';
-      setSnackbar({ open: true, message: msg });
+      setSnackbar({ open: true, message: msg, severity: 'error' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   return (
@@ -131,6 +214,7 @@ const validate = () => {
                 onChange={handleChange}
                 error={!!errors.name}
                 helperText={errors.name}
+                required
               />
             </Grid>
             <Grid item xs={6}>
@@ -142,33 +226,81 @@ const validate = () => {
                 value={formData.approvalSteps}
                 onChange={handleChange}
                 error={!!errors.approvalSteps}
-                helperText={errors.approvalSteps || 'Enter 0 for auto-approval'}
+                helperText={errors.approvalSteps || 'Enter 0 for auto-approval, 1-3 for manual approval'}
               />
             </Grid>
             <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="Loan Limit Multiplier"
+                label="Loan Limit Multiplier (%)"
                 name="loanLimitMultiplier"
                 type="number"
                 value={formData.loanLimitMultiplier}
                 onChange={handleChange}
                 error={!!errors.loanLimitMultiplier}
-               helperText={errors.loanLimitMultiplier || 'Enter a value between 1 and 100'}
-
+                helperText={errors.loanLimitMultiplier || 'Enter a value between 1 and 10000 (e.g., 150 for 150%)'}
+                inputProps={{ step: '1' }}
               />
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth error={!!errors.interestRateType}>
+                <InputLabel>Interest Rate Type</InputLabel>
+                <Select
+                  name="interestRateType"
+                  value={formData.interestRateType}
+                  onChange={handleChange}
+                  label="Interest Rate Type"
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="MONTHLY">Monthly</MenuItem>
+                  <MenuItem value="DAILY">Daily</MenuItem>
+                </Select>
+                {errors.interestRateType && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                    {errors.interestRateType}
+                  </Typography>
+                )}
+              </FormControl>
             </Grid>
             <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="Interest Rate (%)"
+                label="Monthly Interest Rate (%)"
                 name="interestRate"
                 type="number"
                 value={formData.interestRate}
                 onChange={handleChange}
                 error={!!errors.interestRate}
-               helperText={errors.interestRate || 'Enter a rate between 0 and 100'}
-
+                helperText={errors.interestRate || 'Enter a rate between 0 and 100 (e.g., 5 for 5%)'}
+                disabled={formData.interestRateType !== 'MONTHLY'}
+                inputProps={{ step: '1' }}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Daily Interest Rate (%)"
+                name="dailyInterestRate"
+                type="number"
+                value={formData.dailyInterestRate}
+                onChange={handleChange}
+                error={!!errors.dailyInterestRate}
+                helperText={errors.dailyInterestRate || 'Enter a rate between 0 and 100 (e.g., 1 for 1%)'}
+                disabled={formData.interestRateType !== 'DAILY'}
+                inputProps={{ step: '1' }}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Base Interest Rate (%)"
+                name="baseInterestRate"
+                type="number"
+                value={formData.baseInterestRate}
+                onChange={handleChange}
+                error={!!errors.baseInterestRate}
+                helperText={errors.baseInterestRate || 'Enter a rate between 0 and 100 (e.g., 5 for 5%)'}
+                inputProps={{ step: '1' }}
               />
             </Grid>
           </Grid>
@@ -181,7 +313,7 @@ const validate = () => {
               variant="contained"
               disabled={loading}
               fullWidth
-              sx={{ backgroundColor: theme.palette.greenAccent.main, color: '#fff' }}
+              sx={{ backgroundColor: theme?.palette?.greenAccent?.main, color: '#fff' }}
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </Button>
@@ -191,9 +323,21 @@ const validate = () => {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-      />
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbar.severity}
+          sx={{
+            width: '100%',
+            bgcolor: snackbar.severity === 'error' ? theme.palette.error.light : theme.palette.success.light,
+            color: theme.palette.text.primary,
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

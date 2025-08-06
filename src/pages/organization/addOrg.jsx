@@ -7,6 +7,10 @@ import {
   TextField,
   Button,
   Snackbar,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -20,6 +24,9 @@ export default function CreateOrganizationScreen() {
     approvalSteps: '',
     loanLimitMultiplier: '',
     interestRate: '',
+    interestRateType: '',
+    dailyInterestRate: '',
+    baseInterestRate: '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -30,15 +37,28 @@ export default function CreateOrganizationScreen() {
   const theme = getTheme();
   const currentUser = useAuthStore((state) => state.currentUser);
 
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login');
+    }
+  }, [currentUser, navigate]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const newFormData = { ...prev, [name]: value };
+      // Clear irrelevant interest rate when changing interestRateType
+      if (name === 'interestRateType') {
+        if (value === 'DAILY') {
+          newFormData.dailyInterestRate = '';
+        } else if (value === 'MONTHLY') {
+          newFormData.interestRate = '';
+        }
+      }
+      return newFormData;
+    });
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
-
-  useEffect(() => {
-    if (!currentUser) return;
-  }, [currentUser]);
 
   const validate = () => {
     const newErrors = {};
@@ -57,10 +77,48 @@ export default function CreateOrganizationScreen() {
         newErrors.loanLimitMultiplier = 'Loan limit multiplier must be a positive number';
       }
     }
-    if (formData.interestRate !== '') {
-      const rate = Number(formData.interestRate);
-      if (isNaN(rate) || rate < 0) {
-        newErrors.interestRate = 'Interest rate must be a non-negative number';
+    if (formData.interestRateType !== '') {
+      if (!['DAILY', 'MONTHLY'].includes(formData.interestRateType)) {
+        newErrors.interestRateType = 'Interest rate type must be "DAILY" or "WEEKLY"';
+      } else {
+        if (formData.interestRateType === 'DAILY') {
+          if (formData.dailyInterestRate === '') {
+            newErrors.dailyInterestRate = 'Daily interest rate is required when type is DAILY';
+          } else {
+            const dailyRate = Number(formData.dailyInterestRate);
+            if (isNaN(dailyRate) || dailyRate < 0) {
+              newErrors.dailyInterestRate = 'Daily interest rate must be a non-negative number';
+            }
+          }
+          if (formData.interestRate !== '') {
+            newErrors.interestRate = 'Interest rate should not be set when type is DAILY';
+          }
+        } else if (formData.interestRateType === 'MONTHLY') {
+          if (formData.interestRate === '') {
+            newErrors.interestRate = 'Interest rate is required when type is WEEKLY';
+          } else {
+            const rate = Number(formData.interestRate);
+            if (isNaN(rate) || rate < 0) {
+              newErrors.interestRate = 'Interest rate must be a non-negative number';
+            }
+          }
+          if (formData.dailyInterestRate !== '') {
+            newErrors.dailyInterestRate = 'Daily interest rate should not be set when type is WEEKLY';
+          }
+        }
+      }
+    } else {
+      if (formData.interestRate !== '') {
+        newErrors.interestRate = 'Interest rate type must be selected when setting interest rate';
+      }
+      if (formData.dailyInterestRate !== '') {
+        newErrors.dailyInterestRate = 'Interest rate type must be selected when setting daily interest rate';
+      }
+    }
+    if (formData.baseInterestRate !== '') {
+      const baseRate = Number(formData.baseInterestRate);
+      if (isNaN(baseRate) || baseRate < 0) {
+        newErrors.baseInterestRate = 'Base interest rate must be a non-negative number';
       }
     }
     return newErrors;
@@ -72,6 +130,7 @@ export default function CreateOrganizationScreen() {
     const validationErrors = validate();
     if (Object.keys(validationErrors).length) {
       setErrors(validationErrors);
+      setSnackbar({ open: true, message: 'Please correct the errors in the form' });
       return;
     }
 
@@ -79,20 +138,23 @@ export default function CreateOrganizationScreen() {
     if (formData.approvalSteps !== '') payload.approvalSteps = Number(formData.approvalSteps);
     if (formData.loanLimitMultiplier !== '') payload.loanLimitMultiplier = Number(formData.loanLimitMultiplier);
     if (formData.interestRate !== '') payload.interestRate = Number(formData.interestRate);
+    if (formData.interestRateType !== '') {
+      payload.interestRateType = formData.interestRateType === 'DAILY' ? 'MONTHLY' : formData.interestRateType;
+    }
+    if (formData.dailyInterestRate !== '') payload.dailyInterestRate = Number(formData.dailyInterestRate);
+    if (formData.baseInterestRate !== '') payload.baseInterestRate = Number(formData.baseInterestRate);
 
     setLoading(true);
     try {
-      const res = await axios.post(
-        `${BASE_URL}/create-org`,
-        payload,
-        { withCredentials: true }
-      );
-      setSnackbar({ open: true, message: res.data.message || 'Organization created' });
+      const res = await axios.post(`${BASE_URL}/create-org`, payload, {
+        withCredentials: true,
+      });
+      setSnackbar({ open: true, message: res.data.message || 'Organization created successfully' });
       setTimeout(() => navigate('/organizations'), 2000);
     } catch (err) {
       console.error('Error creating organization:', err);
-      const apiError = err.response?.data?.error;
-      setSnackbar({ open: true, message: apiError || 'Failed to create organization' });
+      const apiError = err.response?.data?.error || 'Failed to create organization';
+      setSnackbar({ open: true, message: apiError });
     } finally {
       setLoading(false);
     }
@@ -115,6 +177,7 @@ export default function CreateOrganizationScreen() {
                 onChange={handleChange}
                 error={!!errors.name}
                 helperText={errors.name}
+                required
               />
             </Grid>
             <Grid item xs={6}>
@@ -126,19 +189,19 @@ export default function CreateOrganizationScreen() {
                 value={formData.approvalSteps}
                 onChange={handleChange}
                 error={!!errors.approvalSteps}
-                helperText={errors.approvalSteps || 'Enter 0 for auto-approval, 1-3 people required for manual approval'}
+                helperText={errors.approvalSteps || 'Enter 0 for auto-approval, 1-3 for manual approval'}
               />
             </Grid>
             <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="Loan Limit Multiplier"
+                label="Loan Limit Multiplier (%)"
                 name="loanLimitMultiplier"
                 type="number"
                 value={formData.loanLimitMultiplier}
                 onChange={handleChange}
                 error={!!errors.loanLimitMultiplier}
-                helperText={errors.loanLimitMultiplier || 'Percentage of salary to be used as loan limit, 100% for no limit'}
+                helperText={errors.loanLimitMultiplier || 'Percentage of salary, 100% for no limit'}
               />
             </Grid>
             <Grid item xs={6}>
@@ -151,6 +214,52 @@ export default function CreateOrganizationScreen() {
                 onChange={handleChange}
                 error={!!errors.interestRate}
                 helperText={errors.interestRate}
+                disabled={formData.interestRateType === 'DAILY'}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl fullWidth error={!!errors.interestRateType}>
+                <InputLabel>Interest Rate Type</InputLabel>
+                <Select
+                  name="interestRateType"
+                  value={formData.interestRateType}
+                  onChange={handleChange}
+                  label="Interest Rate Type"
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="DAILY">Daily</MenuItem>
+                  <MenuItem value="MONTHLY">Monthly</MenuItem>
+                </Select>
+                {errors.interestRateType && (
+                  <Typography variant="caption" color="error">
+                    {errors.interestRateType}
+                  </Typography>
+                )}
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Daily Interest Rate (%)"
+                name="dailyInterestRate"
+                type="number"
+                value={formData.dailyInterestRate}
+                onChange={handleChange}
+                error={!!errors.dailyInterestRate}
+                helperText={errors.dailyInterestRate}
+                disabled={formData.interestRateType === 'MONTHLY'}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Base Interest Rate (%)"
+                name="baseInterestRate"
+                type="number"
+                value={formData.baseInterestRate}
+                onChange={handleChange}
+                error={!!errors.baseInterestRate}
+                helperText={errors.baseInterestRate}
               />
             </Grid>
           </Grid>

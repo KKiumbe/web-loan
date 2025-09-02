@@ -28,6 +28,7 @@ export default function EditOrg() {
     interestRateType: '',
     dailyInterestRate: '',
     baseInterestRate: '',
+    status: '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -39,11 +40,25 @@ export default function EditOrg() {
   const theme = getTheme();
   const currentUser = useAuthStore((state) => state.currentUser);
 
-  // Convert decimal to percentage for display
-
   useEffect(() => {
     if (!currentUser) {
-      navigate('/login');
+      setSnackbar({
+        open: true,
+        message: 'Please log in to continue.',
+        severity: 'error',
+      });
+      setTimeout(() => navigate('/login'), 2000);
+      return;
+    }
+
+    // Restrict to ADMIN or ORG_ADMIN
+    if (!currentUser.role.includes('ADMIN') && !currentUser.role.includes('ORG_ADMIN')) {
+      setSnackbar({
+        open: true,
+        message: 'Unauthorized: Only admins can edit organization details.',
+        severity: 'error',
+      });
+      setTimeout(() => navigate('/dashboard'), 2000);
       return;
     }
 
@@ -55,11 +70,12 @@ export default function EditOrg() {
         setFormData({
           name: org.name || '',
           approvalSteps: org.approvalSteps?.toString() || '',
-          loanLimitMultiplier: org.loanLimitMultiplier || '',
-          interestRate: org.interestRateType === 'MONTHLY' ? org.interestRate || '' : '',
+          loanLimitMultiplier: (org.loanLimitMultiplier )?.toString() || '',
+          interestRate: org.interestRateType === 'MONTHLY' ? (org.interestRate)?.toString() || '' : '',
           interestRateType: org.interestRateType || '',
-          dailyInterestRate: org.interestRateType === 'DAILY' ? org.dailyInterestRate || '' : '',
-          baseInterestRate: org.baseInterestRate || '',
+          dailyInterestRate: org.interestRateType === 'DAILY' ? (org.dailyInterestRate)?.toString() || '' : '',
+          baseInterestRate: (org.baseInterestRate )?.toString() || '',
+          status: org.status || '',
         });
       })
       .catch((err) => {
@@ -76,11 +92,13 @@ export default function EditOrg() {
       if (name === 'interestRateType') {
         if (value === 'MONTHLY') {
           newFormData.dailyInterestRate = '';
+          newFormData.baseInterestRate = '';
         } else if (value === 'DAILY') {
           newFormData.interestRate = '';
         } else {
           newFormData.interestRate = '';
           newFormData.dailyInterestRate = '';
+          newFormData.baseInterestRate = '';
         }
       }
       return newFormData;
@@ -91,10 +109,12 @@ export default function EditOrg() {
   const validate = () => {
     const newErrors = {};
 
+    // Name is required
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     }
 
+    // Optional fields: only validate if provided
     if (formData.approvalSteps !== '') {
       const approval = Number(formData.approvalSteps);
       if (!Number.isInteger(approval) || approval < 0 || approval > 3) {
@@ -104,55 +124,63 @@ export default function EditOrg() {
 
     if (formData.loanLimitMultiplier !== '') {
       const loanLimit = Number(formData.loanLimitMultiplier);
-      if (isNaN(loanLimit) || loanLimit < 1 || loanLimit > 10000) {
-        newErrors.loanLimitMultiplier = 'Must be between 1 and 10000 (e.g., 150 for 150%)';
+      if (isNaN(loanLimit) || loanLimit < 0 || loanLimit > 10000) {
+        newErrors.loanLimitMultiplier = 'Must be between 0 and 10000 (e.g., 150 for 150%)';
       }
     }
 
     if (formData.interestRateType !== '') {
       if (!['MONTHLY', 'DAILY'].includes(formData.interestRateType)) {
         newErrors.interestRateType = 'Must be MONTHLY or DAILY';
-      } else {
-        if (formData.interestRateType === 'MONTHLY') {
-          if (formData.interestRate === '') {
-            newErrors.interestRate = 'Monthly interest rate is required when type is MONTHLY';
-          } else {
-            const interest = Number(formData.interestRate);
-            if (isNaN(interest) || interest < 0 || interest > 100) {
-              newErrors.interestRate = 'Must be between 0 and 100 (e.g., 5 for 5%)';
-            }
+      } else if (formData.interestRateType === 'MONTHLY') {
+        if (formData.interestRate === '') {
+          newErrors.interestRate = 'Monthly interest rate is required when type is MONTHLY';
+        } else {
+          const interest = Number(formData.interestRate);
+          if (isNaN(interest) || interest < 0 || interest > 100) {
+            newErrors.interestRate = 'Must be between 0 and 100 (e.g., 5 for 5%)';
           }
-          if (formData.dailyInterestRate !== '') {
-            newErrors.dailyInterestRate = 'Daily interest rate should not be set when type is MONTHLY';
+        }
+        if (formData.dailyInterestRate !== '') {
+          newErrors.dailyInterestRate = 'Daily interest rate should not be set when type is MONTHLY';
+        }
+       
+      } else if (formData.interestRateType === 'DAILY') {
+        if (formData.dailyInterestRate === '') {
+          newErrors.dailyInterestRate = 'Daily interest rate is required when type is DAILY';
+        } else {
+          const dailyInterest = Number(formData.dailyInterestRate);
+          if (isNaN(dailyInterest) || dailyInterest < 0 || dailyInterest > 100) {
+            newErrors.dailyInterestRate = 'Must be between 0 and 100 (e.g., 1 for 1%)';
           }
-        } else if (formData.interestRateType === 'DAILY') {
-          if (formData.dailyInterestRate === '') {
-            newErrors.dailyInterestRate = 'Daily interest rate is required when type is DAILY';
-          } else {
-            const dailyInterest = Number(formData.dailyInterestRate);
-            if (isNaN(dailyInterest) || dailyInterest < 0 || dailyInterest > 100) {
-              newErrors.dailyInterestRate = 'Must be between 0 and 100 (e.g., 1 for 1%)';
-            }
+        }
+        if (formData.baseInterestRate === '') {
+          newErrors.baseInterestRate = 'Base interest rate is required when type is DAILY';
+        } else {
+          const baseInterest = Number(formData.baseInterestRate);
+          if (isNaN(baseInterest) || baseInterest < 0 || baseInterest > 100) {
+            newErrors.baseInterestRate = 'Must be between 0 and 100 (e.g., 5 for 5%)';
           }
-          if (formData.interestRate !== '') {
-            newErrors.interestRate = 'Monthly interest rate should not be set when type is DAILY';
-          }
+        }
+        if (formData.interestRate !== '') {
+          newErrors.interestRate = 'Monthly interest rate should not be set when type is DAILY';
         }
       }
     } else {
+      // If interestRateType is not set, ensure related fields are empty
       if (formData.interestRate !== '') {
         newErrors.interestRate = 'Interest rate type must be selected when setting monthly interest rate';
       }
       if (formData.dailyInterestRate !== '') {
         newErrors.dailyInterestRate = 'Interest rate type must be selected when setting daily interest rate';
       }
+      if (formData.baseInterestRate !== '') {
+        newErrors.baseInterestRate = 'Interest rate type must be DAILY when setting base interest rate';
+      }
     }
 
-    if (formData.baseInterestRate !== '') {
-      const baseInterest = Number(formData.baseInterestRate);
-      if (isNaN(baseInterest) || baseInterest < 0 || baseInterest > 100) {
-        newErrors.baseInterestRate = 'Must be between 0 and 100 (e.g., 5 for 5%)';
-      }
+    if (formData.status !== '' && !['ACTIVE', 'SUSPENDED', 'PENDING'].includes(formData.status)) {
+      newErrors.status = 'Status must be ACTIVE, SUSPENDED, or PENDING';
     }
 
     return newErrors;
@@ -167,15 +195,25 @@ export default function EditOrg() {
       return;
     }
 
+    // Only include fields that have values in the payload
     const payload = {
       name: formData.name.trim(),
-      approvalSteps: formData.approvalSteps !== '' ? Number(formData.approvalSteps) : undefined,
-      loanLimitMultiplier: formData.loanLimitMultiplier !== '' ? formData.loanLimitMultiplier : undefined,
-      interestRate: formData.interestRateType === 'MONTHLY' && formData.interestRate !== '' ? formData.interestRate : undefined,
-      interestRateType: formData.interestRateType || undefined,
-      dailyInterestRate: formData.interestRateType === 'DAILY' && formData.dailyInterestRate !== '' ? formData.dailyInterestRate : undefined,
-      baseInterestRate: formData.baseInterestRate !== '' ? formData.baseInterestRate : undefined,
     };
+    if (formData.approvalSteps !== '') payload.approvalSteps = Number(formData.approvalSteps);
+    if (formData.loanLimitMultiplier !== '') payload.loanLimitMultiplier = Number(formData.loanLimitMultiplier);
+    if (formData.interestRateType === 'MONTHLY' && formData.interestRate !== '') {
+      payload.interestRate = Number(formData.interestRate);
+      payload.interestRateType = formData.interestRateType;
+    }
+    if (formData.interestRateType === 'DAILY' && formData.dailyInterestRate !== '' && formData.baseInterestRate !== '') {
+      payload.interestRateType = formData.interestRateType;
+      payload.dailyInterestRate = Number(formData.dailyInterestRate);
+      payload.baseInterestRate = Number(formData.baseInterestRate);
+    }
+    if (formData.interestRateType === '') {
+      payload.interestRateType = undefined;
+    }
+    if (formData.status !== '') payload.status = formData.status;
 
     setLoading(true);
     try {
@@ -188,6 +226,7 @@ export default function EditOrg() {
       console.error('Update failed:', err);
       const msg = err.response?.data?.error || 'Update failed';
       setSnackbar({ open: true, message: msg, severity: 'error' });
+      setErrors({ server: msg });
     } finally {
       setLoading(false);
     }
@@ -198,11 +237,14 @@ export default function EditOrg() {
   };
 
   return (
-    <Box sx={{  minHeight: '100vh', p: 4 }}>
+    <Box sx={{ minHeight: '100vh', p: 4 }}>
       <Typography variant="h5" sx={{ mb: 3 }}>
         <TitleComponent title="Edit Organization" />
       </Typography>
       <Paper sx={{ p: 5, maxWidth: 950, mx: '5%' }}>
+        <Typography variant="body2" sx={{ mb: 2, color: theme.palette.text.secondary }}>
+          Update one or more fields as needed. Only Organization Name is required.
+        </Typography>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
@@ -213,7 +255,7 @@ export default function EditOrg() {
                 value={formData.name}
                 onChange={handleChange}
                 error={!!errors.name}
-                helperText={errors.name}
+                helperText={errors.name || 'Required'}
                 required
               />
             </Grid>
@@ -226,7 +268,7 @@ export default function EditOrg() {
                 value={formData.approvalSteps}
                 onChange={handleChange}
                 error={!!errors.approvalSteps}
-                helperText={errors.approvalSteps || 'Enter 0 for auto-approval, 1-3 for manual approval'}
+                helperText={errors.approvalSteps || 'Optional: Enter 0 for auto-approval, 1-3 for manual approval'}
               />
             </Grid>
             <Grid item xs={6}>
@@ -238,7 +280,7 @@ export default function EditOrg() {
                 value={formData.loanLimitMultiplier}
                 onChange={handleChange}
                 error={!!errors.loanLimitMultiplier}
-                helperText={errors.loanLimitMultiplier || 'Enter a value between 1 and 10000 (e.g., 150 for 150%)'}
+                helperText={errors.loanLimitMultiplier || 'Optional: Enter a value between 0 and 10000 (e.g., 150 for 150%)'}
                 inputProps={{ step: '1' }}
               />
             </Grid>
@@ -260,6 +302,11 @@ export default function EditOrg() {
                     {errors.interestRateType}
                   </Typography>
                 )}
+                {!errors.interestRateType && (
+                  <Typography variant="caption" sx={{ mt: 0.5, color: theme.palette.text.secondary }}>
+                    Optional: Select MONTHLY or DAILY to set rates
+                  </Typography>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={6}>
@@ -271,7 +318,7 @@ export default function EditOrg() {
                 value={formData.interestRate}
                 onChange={handleChange}
                 error={!!errors.interestRate}
-                helperText={errors.interestRate || 'Enter a rate between 0 and 100 (e.g., 5 for 5%)'}
+                helperText={errors.interestRate || 'Optional: Enter a rate between 0 and 100 (e.g., 5 for 5%)'}
                 disabled={formData.interestRateType !== 'MONTHLY'}
                 inputProps={{ step: '1' }}
               />
@@ -285,7 +332,7 @@ export default function EditOrg() {
                 value={formData.dailyInterestRate}
                 onChange={handleChange}
                 error={!!errors.dailyInterestRate}
-                helperText={errors.dailyInterestRate || 'Enter a rate between 0 and 100 (e.g., 1 for 1%)'}
+                helperText={errors.dailyInterestRate || 'Optional: Enter a rate between 0 and 100 (e.g., 1 for 1%)'}
                 disabled={formData.interestRateType !== 'DAILY'}
                 inputProps={{ step: '1' }}
               />
@@ -299,11 +346,43 @@ export default function EditOrg() {
                 value={formData.baseInterestRate}
                 onChange={handleChange}
                 error={!!errors.baseInterestRate}
-                helperText={errors.baseInterestRate || 'Enter a rate between 0 and 100 (e.g., 5 for 5%)'}
+                helperText={errors.baseInterestRate || 'Optional: Enter a rate between 0 and 100 (e.g., 5 for 5%)'}
+                disabled={formData.interestRateType !== 'DAILY'}
                 inputProps={{ step: '1' }}
               />
             </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth error={!!errors.status}>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  label="Status"
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="ACTIVE">Active</MenuItem>
+                  <MenuItem value="SUSPENDED">Suspended</MenuItem>
+                  <MenuItem value="PENDING">Pending</MenuItem>
+                </Select>
+                {errors.status && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                    {errors.status}
+                  </Typography>
+                )}
+                {!errors.status && (
+                  <Typography variant="caption" sx={{ mt: 0.5, color: theme.palette.text.secondary }}>
+                    Optional: Select a status
+                  </Typography>
+                )}
+              </FormControl>
+            </Grid>
           </Grid>
+          {errors.server && (
+            <Typography sx={{ color: theme.palette.error.main, fontSize: '0.9rem', mt: 2, textAlign: 'center' }}>
+              {errors.server}
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
             <Button variant="outlined" onClick={() => navigate('/organizations')} fullWidth>
               Cancel

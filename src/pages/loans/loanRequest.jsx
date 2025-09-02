@@ -13,6 +13,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import { getTheme } from '../../store/theme';
 import { useAuthStore } from '../../store/authStore';
 import TitleComponent from '../../components/title';
+import { useNavigate } from 'react-router-dom';
 
 const LoanRequestsScreen = () => {
   const [loans, setLoans] = useState([]);
@@ -21,14 +22,25 @@ const LoanRequestsScreen = () => {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
+  const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.currentUser);
   const theme = getTheme();
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  useEffect(() => {
-    if (!currentUser) return;
-    fetchLoans();
-  }, [currentUser]);
+useEffect(() => {
+  // Check if currentUser exists and has EMPLOYEE role
+  if (!currentUser) {
+    setSnackbar({
+      open: true,
+      message: 'Please log in to continue.',
+      severity: 'error',
+    });
+    setTimeout(() => navigate('/login'), 2000);
+    return;
+  }
+
+  
+}, [currentUser, navigate]);
 
   const fetchLoans = async () => {
     try {

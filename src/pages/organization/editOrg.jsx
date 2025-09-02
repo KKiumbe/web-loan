@@ -27,25 +27,16 @@ const EditOrganization = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuthStore();
 
-  const [tenant, setTenant] = useState({
+  const [formData, setFormData] = useState({
     name: "",
-    email: "",
-    phoneNumber: "",
-    alternativePhoneNumber: "",
-    county: "",
-    town: "",
-    address: "",
-    building: "",
-    street: "",
-    website: "",
     approvalSteps: "",
     loanLimitMultiplier: "",
     interestRate: "",
     interestRateType: "",
     dailyInterestRate: "",
     baseInterestRate: "",
+    status: "",
   });
-  const [logoFile, setLogoFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -54,80 +45,94 @@ const EditOrganization = () => {
   });
   const [errors, setErrors] = useState({});
 
-  // Fetch initial tenant and organization data
+  // Fetch organization data
   useEffect(() => {
-    const fetchTenantDetails = async () => {
+    if (!currentUser) {
+      setSnackbar({
+        open: true,
+        message: "Please log in to continue.",
+        severity: "error",
+      });
+      setTimeout(() => navigate("/login"), 2000);
+      return;
+    }
+
+    // Restrict to ADMIN or ORG_ADMIN
+    if (!currentUser.role.includes("ADMIN") && !currentUser.role.includes("ORG_ADMIN")) {
+      setSnackbar({
+        open: true,
+        message: "Unauthorized: Only admins can edit organization details.",
+        severity: "error",
+      });
+      setTimeout(() => navigate("/dashboard"), 2000);
+      return;
+    }
+
+    const fetchOrganizationDetails = async () => {
       try {
-        const response = await axios.get(`${BASEURL}/tenants/${currentUser.tenantId}`, {
+        // Assume organizationId is from currentUser or route params
+        const orgId = currentUser.organizationId || 1; // Replace with actual orgId
+        const response = await axios.get(`${BASEURL}/organizations/${orgId}`, {
           withCredentials: true,
         });
-        // Merge tenant and organization data
-        const tenantData = response.data.tenant;
-        setTenant({
-          name: tenantData.name || "",
-          email: tenantData.email || "",
-          phoneNumber: tenantData.phoneNumber || "",
-          alternativePhoneNumber: tenantData.alternativePhoneNumber || "",
-          county: tenantData.county || "",
-          town: tenantData.town || "",
-          address: tenantData.address || "",
-          building: tenantData.building || "",
-          street: tenantData.street || "",
-          website: tenantData.website || "",
-         
+        const org = response.data;
+        setFormData({
+          name: org.name || "",
+          approvalSteps: org.approvalSteps?.toString() || "",
+          loanLimitMultiplier: (org.loanLimitMultiplier * 100)?.toString() || "", // Convert to percentage
+          interestRate: (org.interestRate * 100)?.toString() || "", // Convert to percentage
+          interestRateType: org.interestRateType || "",
+          dailyInterestRate: (org.dailyInterestRate * 100)?.toString() || "", // Convert to percentage
+          baseInterestRate: (org.baseInterestRate * 100)?.toString() || "", // Convert to percentage
+          status: org.status || "",
         });
       } catch (err) {
         setSnackbar({
           open: true,
-          message: "Failed to load organization details for editing.",
+          message: "Failed to load organization details.",
           severity: "error",
         });
       }
     };
 
-    if (currentUser?.tenantId) {
-      fetchTenantDetails();
-    } else {
-      navigate("/login");
+    if (currentUser.tenantId) {
+      fetchOrganizationDetails();
     }
   }, [currentUser, navigate]);
 
   const handleFieldChange = (field, value) => {
-    setTenant((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
-  };
-
-  const handleLogoChange = (event) => {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith("image/")) {
-      setLogoFile(file);
-    } else {
-      setSnackbar({
-        open: true,
-        message: "Please select a valid image file.",
-        severity: "error",
-      });
-    }
   };
 
   const validate = () => {
     const newErrors = {};
-    if (!tenant.name.trim()) {
+    if (!formData.name.trim()) {
       newErrors.name = "Organization name is required";
     }
-    if (tenant.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tenant.email)) {
-      newErrors.email = "Invalid email format";
+    if (formData.approvalSteps && (isNaN(formData.approvalSteps) || formData.approvalSteps < 0)) {
+      newErrors.approvalSteps = "Approval steps must be a non-negative integer";
     }
-    if (tenant.phoneNumber && !/^\+?\d{10,15}$/.test(tenant.phoneNumber)) {
-      newErrors.phoneNumber = "Invalid phone number format (10-15 digits)";
+    if (formData.loanLimitMultiplier && (isNaN(formData.loanLimitMultiplier) || formData.loanLimitMultiplier <= 0)) {
+      newErrors.loanLimitMultiplier = "Loan limit multiplier must be a positive number";
     }
-    if (tenant.alternativePhoneNumber && !/^\+?\d{10,15}$/.test(tenant.alternativePhoneNumber)) {
-      newErrors.alternativePhoneNumber = "Invalid alternative phone number format (10-15 digits)";
+    if (formData.interestRate && (isNaN(formData.interestRate) || formData.interestRate < 0)) {
+      newErrors.interestRate = "Interest rate must be a non-negative number";
     }
-    if (tenant.website && !/^https?:\/\/[^\s/$.?#].[^\s]*$/.test(tenant.website)) {
-      newErrors.website = "Invalid website URL";
+    if (formData.interestRateType && !["DAILY", "MONTHLY"].includes(formData.interestRateType)) {
+      newErrors.interestRateType = "Interest rate type must be DAILY or MONTHLY";
     }
-    
+    if (formData.interestRateType === "DAILY") {
+      if (!formData.dailyInterestRate || isNaN(formData.dailyInterestRate) || formData.dailyInterestRate <= 0) {
+        newErrors.dailyInterestRate = "Daily interest rate is required and must be positive for DAILY type";
+      }
+      if (!formData.baseInterestRate || isNaN(formData.baseInterestRate) || formData.baseInterestRate <= 0) {
+        newErrors.baseInterestRate = "Base interest rate is required and must be positive for DAILY type";
+      }
+    }
+    if (formData.status && !["ACTIVE", "SUSPENDED", "PENDING"].includes(formData.status)) {
+      newErrors.status = "Status must be ACTIVE, SUSPENDED, or PENDING";
+    }
     return newErrors;
   };
 
@@ -141,35 +146,21 @@ const EditOrganization = () => {
 
     setLoading(true);
     try {
-      // Prepare payload for tenant and organization update
+      const orgId = currentUser.organizationId || 1; // Replace with actual orgId
       const payload = {
-        name: tenant.name.trim(),
-        email: tenant.email || undefined,
-        phoneNumber: tenant.phoneNumber || undefined,
-        alternativePhoneNumber: tenant.alternativePhoneNumber || undefined,
-        county: tenant.county || undefined,
-        town: tenant.town || undefined,
-        address: tenant.address || undefined,
-        building: tenant.building || undefined,
-        street: tenant.street || undefined,
-        website: tenant.website || undefined,
-      
+        name: formData.name.trim(),
+        approvalSteps: formData.approvalSteps ? Number(formData.approvalSteps) : undefined,
+        loanLimitMultiplier: formData.loanLimitMultiplier ? Number(formData.loanLimitMultiplier) / 100 : undefined,
+        interestRate: formData.interestRate ? Number(formData.interestRate) / 100 : undefined,
+        interestRateType: formData.interestRateType || undefined,
+        dailyInterestRate: formData.dailyInterestRate ? Number(formData.dailyInterestRate) / 100 : undefined,
+        baseInterestRate: formData.baseInterestRate ? Number(formData.baseInterestRate) / 100 : undefined,
+        status: formData.status || undefined,
       };
 
-      // Update tenant and organization details
-      await axios.put(`${BASEURL}/tenants/${currentUser.tenantId}`, payload, {
+      await axios.put(`${BASEURL}/organizations/${orgId}`, payload, {
         withCredentials: true,
       });
-
-      // Update logo if a new file is selected
-      if (logoFile) {
-        const formData = new FormData();
-        formData.append("logo", logoFile);
-        await axios.put(`${BASEURL}/logo-upload/${currentUser.tenantId}`, formData, {
-          withCredentials: true,
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      }
 
       setSnackbar({
         open: true,
@@ -178,11 +169,13 @@ const EditOrganization = () => {
       });
       setTimeout(() => navigate("/org-details"), 1000);
     } catch (err) {
+      const msg = err.response?.data?.error || "Failed to update organization.";
       setSnackbar({
         open: true,
-        message: err.response?.data?.error || "Failed to update organization. Please try again.",
+        message: msg,
         severity: "error",
       });
+      setErrors({ server: msg });
     } finally {
       setLoading(false);
     }
@@ -215,10 +208,7 @@ const EditOrganization = () => {
       >
         <CardContent sx={{ p: 4 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-            <Typography
-              variant="h4"
-              sx={{ fontWeight: "bold", color: theme.palette.text.primary }}
-            >
+            <Typography variant="h4" sx={{ fontWeight: "bold", color: theme.palette.text.primary }}>
               <TitleComponent title="Edit Organization Profile" />
             </Typography>
           </Box>
@@ -229,7 +219,7 @@ const EditOrganization = () => {
               <TextField
                 fullWidth
                 label="Organization Name"
-                value={tenant.name || ""}
+                value={formData.name}
                 onChange={(e) => handleFieldChange("name", e.target.value)}
                 variant="outlined"
                 sx={{ bgcolor: theme.palette.background.paper }}
@@ -238,149 +228,136 @@ const EditOrganization = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Email"
-                value={tenant.email || ""}
-                onChange={(e) => handleFieldChange("email", e.target.value)}
+                label="Approval Steps"
+                value={formData.approvalSteps}
+                onChange={(e) => handleFieldChange("approvalSteps", e.target.value)}
                 variant="outlined"
+                type="number"
                 sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.email}
-                helperText={errors.email}
+                error={!!errors.approvalSteps}
+                helperText={errors.approvalSteps}
+                inputProps={{ min: "0" }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Phone Number"
-                value={tenant.phoneNumber || ""}
-                onChange={(e) => handleFieldChange("phoneNumber", e.target.value)}
+                label="Loan Limit Multiplier (%)"
+                value={formData.loanLimitMultiplier}
+                onChange={(e) => handleFieldChange("loanLimitMultiplier", e.target.value)}
                 variant="outlined"
+                type="number"
                 sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.phoneNumber}
-                helperText={errors.phoneNumber}
+                error={!!errors.loanLimitMultiplier}
+                helperText={errors.loanLimitMultiplier}
+                inputProps={{ min: "0", step: "0.01" }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Alternative Phone Number"
-                value={tenant.alternativePhoneNumber || ""}
-                onChange={(e) => handleFieldChange("alternativePhoneNumber", e.target.value)}
+                label="Interest Rate (%)"
+                value={formData.interestRate}
+                onChange={(e) => handleFieldChange("interestRate", e.target.value)}
                 variant="outlined"
+                type="number"
                 sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.alternativePhoneNumber}
-                helperText={errors.alternativePhoneNumber}
+                error={!!errors.interestRate}
+                helperText={errors.interestRate}
+                inputProps={{ min: "0", step: "0.01" }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="County"
-                value={tenant.county || ""}
-                onChange={(e) => handleFieldChange("county", e.target.value)}
-                variant="outlined"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.county}
-                helperText={errors.county}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Town"
-                value={tenant.town || ""}
-                onChange={(e) => handleFieldChange("town", e.target.value)}
-                variant="outlined"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.town}
-                helperText={errors.town}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Address"
-                value={tenant.address || ""}
-                onChange={(e) => handleFieldChange("address", e.target.value)}
-                variant="outlined"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.address}
-                helperText={errors.address}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Building"
-                value={tenant.building || ""}
-                onChange={(e) => handleFieldChange("building", e.target.value)}
-                variant="outlined"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.building}
-                helperText={errors.building}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Street"
-                value={tenant.street || ""}
-                onChange={(e) => handleFieldChange("street", e.target.value)}
-                variant="outlined"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.street}
-                helperText={errors.street}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Website"
-                value={tenant.website || ""}
-                onChange={(e) => handleFieldChange("website", e.target.value)}
-                variant="outlined"
-                sx={{ bgcolor: theme.palette.background.paper }}
-                error={!!errors.website}
-                helperText={errors.website}
-              />
-            </Grid>
-          
-        
-         
-      
-            <Grid item xs={12}>
-              <Typography
-                variant="subtitle1"
-                sx={{ mb: 1, color: theme.palette.text.secondary, fontWeight: "medium" }}
-              >
-                Update Logo
-              </Typography>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  border: `1px dashed ${theme.palette.grey[400]}`,
-                  borderRadius: "8px",
-                  p: 2,
-                  bgcolor: theme.palette.grey[100],
-                }}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                  style={{ flexGrow: 1 }}
-                />
-                {logoFile && (
-                  <Typography variant="body2" sx={{ ml: 2, color: theme.palette.text.secondary }}>
-                    {logoFile.name}
+              <FormControl fullWidth error={!!errors.interestRateType}>
+                <InputLabel>Interest Rate Type</InputLabel>
+                <Select
+                  value={formData.interestRateType}
+                  onChange={(e) => handleFieldChange("interestRateType", e.target.value)}
+                  label="Interest Rate Type"
+                  variant="outlined"
+                  sx={{ bgcolor: theme.palette.background.paper }}
+                >
+                  <MenuItem value="">
+                    <em>Select Type</em>
+                  </MenuItem>
+                  <MenuItem value="DAILY">Daily</MenuItem>
+                  <MenuItem value="MONTHLY">Monthly</MenuItem>
+                </Select>
+                {errors.interestRateType && (
+                  <Typography variant="caption" color="error">
+                    {errors.interestRateType}
                   </Typography>
                 )}
-              </Box>
+              </FormControl>
+            </Grid>
+            {formData.interestRateType === "DAILY" && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Daily Interest Rate (%)"
+                    value={formData.dailyInterestRate}
+                    onChange={(e) => handleFieldChange("dailyInterestRate", e.target.value)}
+                    variant="outlined"
+                    type="number"
+                    sx={{ bgcolor: theme.palette.background.paper }}
+                    error={!!errors.dailyInterestRate}
+                    helperText={errors.dailyInterestRate}
+                    inputProps={{ min: "0", step: "0.01" }}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Base Interest Rate (%)"
+                    value={formData.baseInterestRate}
+                    onChange={(e) => handleFieldChange("baseInterestRate", e.target.value)}
+                    variant="outlined"
+                    type="number"
+                    sx={{ bgcolor: theme.palette.background.paper }}
+                    error={!!errors.baseInterestRate}
+                    helperText={errors.baseInterestRate}
+                    inputProps={{ min: "0", step: "0.01" }}
+                    required
+                  />
+                </Grid>
+              </>
+            )}
+            <Grid item xs={12}>
+              <FormControl fullWidth error={!!errors.status}>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => handleFieldChange("status", e.target.value)}
+                  label="Status"
+                  variant="outlined"
+                  sx={{ bgcolor: theme.palette.background.paper }}
+                >
+                  <MenuItem value="">
+                    <em>Select Status</em>
+                  </MenuItem>
+                  <MenuItem value="ACTIVE">Active</MenuItem>
+                  <MenuItem value="SUSPENDED">Suspended</MenuItem>
+                  <MenuItem value="PENDING">Pending</MenuItem>
+                </Select>
+                {errors.status && (
+                  <Typography variant="caption" color="error">
+                    {errors.status}
+                  </Typography>
+                )}
+              </FormControl>
             </Grid>
           </Grid>
+
+          {errors.server && (
+            <Typography sx={{ color: theme.palette.error.main, fontSize: "0.9rem", mt: 2, textAlign: "center" }}>
+              {errors.server}
+            </Typography>
+          )}
 
           <Box sx={{ display: "flex", gap: 2, mt: 4 }}>
             <Button

@@ -14,7 +14,7 @@ import { getTheme } from '../../store/theme';
 import { useAuthStore } from '../../store/authStore';
 import TitleComponent from '../../components/title';
 import { useNavigate } from 'react-router-dom';
-
+import { format } from 'date-fns';
 const LoanRequestsScreen = () => {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,20 +122,23 @@ useEffect(() => {
     { field: 'interestRate', headerName: 'Interest', width: 120, type: 'number' },
     { field: 'organizationName', headerName: 'Organization', width: 180 },
     { field: 'status', headerName: 'Status', width: 120 },
-    {
+  
+
+      {
       field: 'createdAt',
       headerName: 'Requested On',
-      width: 180,
-      valueGetter: (params) => {
+      width: 200,
+      renderCell: (params) => {
+        const value = params.row.createdAt;
+        if (!value) return '—';
+    
         try {
-          return params.row.createdAt
-            ? new Date(params.row.createdAt).toLocaleString()
-            : 'N/A';
+          return format(new Date(value), 'dd MMM yyyy, HH:mm');
         } catch {
-          return 'Invalid Date';
+          return '—';
         }
-      },
-    },
+      }
+    }
   ];
 
   return (

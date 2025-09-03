@@ -61,7 +61,7 @@ export default function CustomerDetails() {
           phoneNumber: employee.phoneNumber,
           idNumber: employee.idNumber || '—',
           secondaryPhoneNumber: employee.secondaryPhoneNumber || '—',
-          grossSalary: employee.grossSalary ? `KES ${employee.grossSalary.toLocaleString('en-US')}` : '—',
+          grossSalary: employee.grossSalary ? `KES ${employee.grossSalary}` : '—',
           tenantName: employee.tenant,
           organizationName: employee.organization,
           email: '—',
@@ -70,7 +70,7 @@ export default function CustomerDetails() {
           loans: allLoans.map((loan) => ({
             ...loan,
             organizationName: loan.organization || '—',
-            createdAt: new Date(loan.createdAt).toLocaleString('en-US', {
+            createdAt: new Date(loan.createdAt).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'short',
               day: 'numeric',
@@ -121,7 +121,7 @@ export default function CustomerDetails() {
       headerName: 'Amount (KES)',
       width: 150,
       type: 'number',
-      valueFormatter: (params) => params.value.toLocaleString('en-US', { minimumFractionDigits: 2 }),
+     
     },
     { field: 'status', headerName: 'Status', width: 120 },
     { field: 'organizationName', headerName: 'Organization', width: 200 },

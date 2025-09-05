@@ -217,7 +217,7 @@ const Navbar = () => {
           ) : (
             <>
               <ListItem>
-                <ListItemText primary="Tenant" secondary={currentUser.tenant?.name || "N/A"} />
+                <ListItemText primary="Organization" secondary={currentUser.tenant?.name || "N/A"} />
               </ListItem>
               <ListItem>
                 <ListItemText
@@ -237,7 +237,7 @@ const Navbar = () => {
               <ListItem>
                 <ListItemText primary="County" secondary={currentUser.county || "N/A"} />
               </ListItem>
-              <ListItem>
+              <ListItem> 
                 <ListItemText primary="Town" secondary={currentUser.town || "N/A"} />
               </ListItem>
               <ListItem button onClick={handleLogout}>

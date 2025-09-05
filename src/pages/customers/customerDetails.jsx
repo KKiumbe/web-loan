@@ -102,7 +102,7 @@ export default function CustomerDetails() {
         message: 'Employee deleted successfully',
         severity: 'success',
       });
-      setTimeout(() => navigate('/employees'), 2000);
+      setTimeout(() => navigate('/customers'), 2000);
        setDeleting(false);
     } catch (err) {
       console.error('Failed to delete employee:', err);

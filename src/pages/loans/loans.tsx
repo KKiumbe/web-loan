@@ -10,13 +10,14 @@ import {
   TextField,
   InputAdornment,
   Divider,
-  MenuItem,
-  Select,
   FormControl,
   InputLabel,
+  Select,
+  MenuItem,
   Grid,
   Card,
   CardContent,
+  Autocomplete,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import SearchIcon from '@mui/icons-material/Search';
@@ -26,6 +27,7 @@ import { useAuthStore } from '../../store/authStore';
 import TitleComponent from '../../components/title';
 import debounce from 'lodash/debounce';
 import { format } from 'date-fns';
+
 const loanStatusColors = {
   PENDING: '#FFA500',
   APPROVED: '#4CAF50',
@@ -36,15 +38,14 @@ const loanStatusColors = {
 };
 
 const LoansScreen = () => {
-  const [groupedLoans, setGroupedLoans] = useState({});
- const [filteredLoans, setFilteredLoans] = useState([]);
+  const [groupedLoans, setGroupedLoans] = useState<Record<string, any[]>>({});
+const [filteredLoans, setFilteredLoans] = useState<Loan[]>([]);
+
   const [status, setStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [orgLoading, setOrgLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' });
-  const [orgSearch, setOrgSearch] = useState('');
-const [orgOptions, setOrgOptions] = useState<{ id: any; name: any; employeeCount: any; }[]>([]);
+  const [organizations, setOrganizations] = useState([]);
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [stats, setStats] = useState({
     totalLoans: 0,
@@ -64,49 +65,6 @@ const [orgOptions, setOrgOptions] = useState<{ id: any; name: any; employeeCount
   const navigate = useNavigate();
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  // Debounced search function
-  const debouncedSearchOrgs = useCallback(
-    debounce(async (value) => {
-      try {
-        setOrgLoading(true);
-        const res = await axios.get(`${BASE_URL}/organizations-search`, {
-          params: { search: value },
-          withCredentials: true,
-        });
-        console.log('searchOrgs response:', res.data);
-        const organizations = res.data.organizations || [];
-        if (Array.isArray(organizations)) {
-          setOrgOptions(
-            organizations.map((o) => ({
-              id: o.id,
-              name: o.name,
-              employeeCount: o.employeeCount || 0,
-            }))
-          );
-        } else {
-          console.error('Expected organizations array, got:', res.data.organizations);
-          setOrgOptions([]);
-          setSnackbar({
-            open: true,
-            message: 'Invalid organization search response',
-            severity: 'error',
-          });
-        }
-      } catch (error) {
-        console.error('searchOrgs error:', error.message);
-        setOrgOptions([]);
-        setSnackbar({
-          open: true,
-          message: 'Failed to search organizations',
-          severity: 'error',
-        });
-      } finally {
-        setOrgLoading(false);
-      }
-    }, 300),
-    []
-  );
-
   useEffect(() => {
     if (!currentUser) {
       setSnackbar({ open: true, message: 'Please log in to continue.', severity: 'error' });
@@ -114,132 +72,149 @@ const [orgOptions, setOrgOptions] = useState<{ id: any; name: any; employeeCount
       return;
     }
 
+    fetchOrganizations();
     fetchAllLoans();
   }, [currentUser, navigate]);
-const fetchAllLoans = async () => {
-  try {
+
+  // Fetch organizations
+  const fetchOrganizations = async () => {
     setLoading(true);
-    const res = await axios.get(`${BASE_URL}/get-all-loans`, { withCredentials: true });
-    console.log('fetchAllLoans response:', res.data);
-    const loans = Array.isArray(res.data.loans) ? res.data.loans : [];
-    if (!loans.length) {
-      console.warn('No loans returned from API');
-      setSnackbar({ open: true, message: 'No loans found', severity: 'info' });
+    try {
+      const res = await axios.get(`${BASE_URL}/organizations`, { withCredentials: true });
+      const orgs = Array.isArray(res.data) ? res.data : [];
+      console.log('Organizations:', orgs);
+      setOrganizations(orgs);
+    } catch (err) {
+      console.error('Failed to load organizations:', err);
+      setSnackbar({ open: true, message: 'Failed to load organizations', severity: 'error' });
+    } finally {
+      setLoading(false);
     }
-    groupAndSetLoans(loans);
-    setStats({
-      totalLoans: 0,
-      loansThisMonth: 0,
-      statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
-      disbursedPercentageThisMonth: 0,
-    });
-  } catch (error) {
-    console.error('fetchAllLoans error:', error.message);
-    setSnackbar({
-      open: true,
-      message: error.response?.data?.message || 'Failed to fetch loans',
-      severity: 'error',
-    });
-    setGroupedLoans({});
-    setFilteredLoans([]);
-    setStatus('');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-const fetchLoansForOrg = async (orgId) => {
-  try {
-    setLoading(true);
-    const res = await axios.get(`${BASE_URL}/loans/organization/${orgId}`, { withCredentials: true });
-    console.log('fetchLoansForOrg response:', res.data);
-    const loans = Array.isArray(res.data.loans) ? res.data.loans : [];
-    if (!loans.length) {
-      console.warn('No loans returned for organization:', orgId);
-      setSnackbar({ open: true, message: 'No loans found for this organization', severity: 'info' });
+  const fetchAllLoans = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${BASE_URL}/get-all-loans`, { withCredentials: true });
+      console.log('fetchAllLoans response:', res.data);
+      const loans = Array.isArray(res.data.loans) ? res.data.loans : [];
+      if (!loans.length) {
+        console.warn('No loans returned from API');
+        setSnackbar({ open: true, message: 'No loans found', severity: 'info' });
+      }
+      groupAndSetLoans(loans);
+      setStats({
+        totalLoans: 0,
+        loansThisMonth: 0,
+        statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
+        disbursedPercentageThisMonth: 0,
+      });
+    } catch (error) {
+      console.error('fetchAllLoans error:', error.message);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to fetch loans',
+        severity: 'error',
+      });
+      setGroupedLoans({});
+      setFilteredLoans([]);
+      setStatus('');
+    } finally {
+      setLoading(false);
     }
-    groupAndSetLoans(loans);
-    setStats(res.data.stats || {
-      totalLoans: 0,
-      loansThisMonth: 0,
-      statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
-      disbursedPercentageThisMonth: 0,
-    });
-  } catch (error) {
-    console.error('fetchLoansForOrg error:', error.message);
-    setSnackbar({
-      open: true,
-      message: error.response?.data?.message || 'Failed to fetch organization loans',
-      severity: 'error',
-    });
-    setGroupedLoans({});
-    setFilteredLoans([]);
-    setStatus('');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-const groupAndSetLoans = (loansArray) => {
-  const grouped = {};
-  loansArray.forEach((loan) => {
-    // Skip invalid loan objects
-    if (!loan || !loan.id) {
-      console.warn('Invalid loan object:', loan);
-      return;
+  const fetchLoansForOrg = async (orgId) => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${BASE_URL}/loans/organization/${orgId}`, { withCredentials: true });
+      console.log('fetchLoansForOrg response:', res.data);
+      const loans = Array.isArray(res.data.loans) ? res.data.loans : [];
+      if (!loans.length) {
+        console.warn('No loans returned for organization:', orgId);
+        setSnackbar({ open: true, message: 'No loans found for this organization', severity: 'info' });
+      }
+      groupAndSetLoans(loans);
+      setStats(res.data.stats || {
+        totalLoans: 0,
+        loansThisMonth: 0,
+        statusCountsThisMonth: { PENDING: 0, APPROVED: 0, REJECTED: 0, REPAID: 0, DISBURSED: 0 },
+        disbursedPercentageThisMonth: 0,
+      });
+    } catch (error) {
+      console.error('fetchLoansForOrg error:', error.message);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to fetch organization loans',
+        severity: 'error',
+      });
+      setGroupedLoans({});
+      setFilteredLoans([]);
+      setStatus('');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const statusKey = loan.status || 'UNKNOWN';
-    if (!grouped[statusKey]) grouped[statusKey] = [];
+  const groupAndSetLoans = (loansArray) => {
+    const grouped = {};
+    loansArray.forEach((loan) => {
+      if (!loan || !loan.id) {
+        console.warn('Invalid loan object:', loan);
+        return;
+      }
 
-    const organizationName =
-      loan.organization?.name ||
-      loan.user?.employee?.organization?.name ||
-      
-      'N/A';
+      const statusKey = loan.status || 'UNKNOWN';
+      if (!grouped[statusKey]) grouped[statusKey] = [];
 
-    if (!loan.user) console.warn('Loan missing user:', loan.id);
-    if (!organizationName) console.warn('Loan missing organization:', loan.id);
+      const organizationName =
+        loan.organization?.name ||
+        loan.user?.employee?.organization?.name ||
+        'N/A';
 
-    grouped[statusKey].push({
-      ...loan,
-      customerName: `${loan.user?.firstName || ''} ${loan.user?.lastName || ''}`.trim() || 'N/A',
-      phoneNumber: loan.user?.phoneNumber || 'N/A',
-      email: loan.user?.email || 'N/A',
-      organizationName,
-      interestRate: loan.interestRate !== undefined ? (loan.interestRate * 100).toFixed(2) : 'N/A',
-      createdAt: loan?.createdAt || null, // Ensure createdAt has a fallback
-      duration: loan.duration || null, // Ensure duration has a fallback
-      mpesaStatus: loan.mpesaStatus || 'N/A',
-      disbursementDate: loan?.disbursedAt || null, // Use disbursedAt instead of LoanPayout.createdAt
+      if (!loan.user) console.warn('Loan missing user:', loan.id);
+      if (!organizationName) console.warn('Loan missing organization:', loan.id);
 
-      loanPayout: loan.LoanPayout?.status || null,
-      mpesaTrasactionId: loan.mpesaTransactionId || 'N/A',
+      grouped[statusKey].push({
+        ...loan,
+        customerName: `${loan.user?.firstName || ''} ${loan.user?.lastName || ''}`.trim() || 'N/A',
+        phoneNumber: loan.user?.phoneNumber || 'N/A',
+        email: loan.user?.email || 'N/A',
+        organizationName,
+        interestRate: loan.interestRate !== undefined ? (loan.interestRate * 100).toFixed(2) : 'N/A',
+        createdAt: loan?.createdAt || null,
+        duration: loan.duration || null,
+        mpesaStatus: loan.mpesaStatus || 'N/A',
+        disbursementDate: loan?.disbursedAt || null,
+        loanPayout: loan.LoanPayout?.status || null,
+        mpesaTrasactionId: loan.mpesaTransactionId || 'N/A',
+      });
     });
-  });
 
-  console.log('Grouped loans:', grouped);
-  setGroupedLoans(grouped);
-  const firstStatus = Object.keys(grouped).length > 0 ? Object.keys(grouped)[0] : '';
-  setStatus(firstStatus);
-  setFilteredLoans(grouped[firstStatus] || []);
-};
+    console.log('Grouped loans:', grouped);
+    setGroupedLoans(grouped);
+    const firstStatus = Object.keys(grouped).length > 0 ? Object.keys(grouped)[0] : '';
+    setStatus(firstStatus);
+    setFilteredLoans(grouped[firstStatus] || []);
+  };
+
+  interface Loan {
+  id: string;
+  customerName: string;
+  phoneNumber: string;
+  email: string;
+  // Add other loan properties here
+}
 
   const handleStatusChange = (event) => {
     const newStatus = event.target.value;
     setStatus(newStatus);
     setSearchQuery('');
     if (newStatus === 'ALL') {
-      setFilteredLoans(Object.values(groupedLoans).flat());
+      setFilteredLoans(Object.values(groupedLoans).flat() as any[]);
     } else {
       setFilteredLoans(groupedLoans[newStatus] || []);
     }
-  };
-
-  const handleOrgSearch = (event) => {
-    const value = event.target.value;
-    setOrgSearch(value);
-    debouncedSearchOrgs(value);
   };
 
   const columns = [
@@ -251,44 +226,36 @@ const groupAndSetLoans = (loansArray) => {
     { field: 'interestRate', headerName: 'Interest (%)', width: 120, type: 'number' },
     { field: 'duration', headerName: 'Duration (days)', width: 120, type: 'number' },
     {
-  field: 'createdAt',
-  headerName: 'Created At',
-  width: 200,
-  renderCell: (params) => {
-    const value = params.row.createdAt;
-    if (!value) return '—';
-
-    try {
-      return format(new Date(value), 'dd MMM yyyy, HH:mm');
-    } catch {
-      return '—';
-    }
-  }
-}
-,
+      field: 'createdAt',
+      headerName: 'Created At',
+      width: 200,
+      renderCell: (params) => {
+        const value = params.row.createdAt;
+        if (!value) return '—';
+        try {
+          return format(new Date(value), 'dd MMM yyyy, HH:mm');
+        } catch {
+          return '—';
+        }
+      },
+    },
     { field: 'mpesaStatus', headerName: 'Mpesa Status', width: 180, type: 'string' },
-{
-  field: 'disbursementDate',
-  headerName: 'Disbursement Date',
-  width: 200,
-  renderCell: (params) => {
-    const value = params.row.disbursementDate;
-    if (!value) return '—';
-    try {
-      return format(new Date(value), 'dd MMM yyyy, HH:mm');
-    } catch {
-      return '—';
-    }
-  },
-},  
-
-
-
+    {
+      field: 'disbursementDate',
+      headerName: 'Disbursement Date',
+      width: 200,
+      renderCell: (params) => {
+        const value = params.row.disbursementDate;
+        if (!value) return '—';
+        try {
+          return format(new Date(value), 'dd MMM yyyy, HH:mm');
+        } catch {
+          return '—';
+        }
+      },
+    },
     { field: 'mpesaTrasactionId', headerName: 'Mpesa Transaction ID', width: 180, type: 'string' },
-
     { field: 'organizationName', headerName: 'Organization', width: 180 },
-   
-
     {
       field: 'status',
       headerName: 'Status',
@@ -299,7 +266,6 @@ const groupAndSetLoans = (loansArray) => {
         </Typography>
       ),
     },
-   
   ];
 
   return (
@@ -309,65 +275,46 @@ const groupAndSetLoans = (loansArray) => {
           <TitleComponent title="Loans" />
         </Typography>
 
-        {/* Organization Search */}
+        {/* Organization Filter */}
         <Box sx={{ mb: 2 }}>
-          <TextField
-            placeholder="Search organization..."
-            value={orgSearch}
-            onChange={handleOrgSearch}
-            variant="outlined"
-            size="small"
-            sx={{ width: '100%', maxWidth: 400, mb: 1 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: theme.palette.text.secondary }} />
-                </InputAdornment>
-              ),
-              endAdornment: orgLoading ? (
-                <InputAdornment position="end">
-                  <CircularProgress size={20} />
-                </InputAdornment>
-              ) : null,
+          <Autocomplete
+            options={[{ id: null, name: 'All Organizations' }, ...organizations]}
+            getOptionLabel={(option) => option.name || ''}
+            value={selectedOrg}
+            onChange={(event, newValue) => {
+              setSelectedOrg(newValue);
+              if (newValue) {
+                fetchLoansForOrg(newValue.id);
+              } else {
+                fetchAllLoans();
+              }
             }}
-          />
-          <Select
-            value={selectedOrg?.id || ''}
-            onChange={(e) => {
-              const selected = orgOptions.find((o) => o.id === e.target.value);
-              setSelectedOrg(selected);
-              fetchLoansForOrg(selected.id);
-            }}
-            displayEmpty
-            fullWidth
-            size="small"
-            disabled={orgLoading || orgOptions.length === 0}
-          >
-            <MenuItem value="" disabled>
-              {orgLoading ? 'Loading...' : orgOptions.length === 0 ? 'No organizations found' : 'Select organization'}
-            </MenuItem>
-            {orgOptions.map((org) => (
-              <MenuItem key={org.id} value={org.id}>
-                {org.name} {org.employeeCount ? `(${org.employeeCount} employees)` : ''}
-              </MenuItem>
-            ))}
-          </Select>
-          {selectedOrg && (
-            <Box sx={{ textAlign: 'right', mt: 1 }}>
-              <Typography
-                variant="body2"
-                sx={{ color: 'primary.main', cursor: 'pointer' }}
-                onClick={() => {
-                  setSelectedOrg(null);
-                  setOrgSearch('');
-                  setOrgOptions([]);
-                  fetchAllLoans();
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Filter by Organization"
+                variant="outlined"
+                size="small"
+                sx={{ width: { xs: '100%', sm: 400 } }}
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <>
+                      {loading && <CircularProgress size={20} />}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
                 }}
-              >
-                Clear organization filter
-              </Typography>
-            </Box>
-          )}
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === value?.id}
+            disabled={loading || organizations.length === 0}
+          />
         </Box>
 
         {loading ? (
@@ -376,7 +323,7 @@ const groupAndSetLoans = (loansArray) => {
           </Box>
         ) : (
           <Paper sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3, boxShadow: '0 6px 16px rgba(0,0,0,0.1)' }}>
-            {/* Statistics Section (Fixed, Non-Scrollable) */}
+            {/* Statistics Section */}
             {selectedOrg && (
               <Box sx={{ mb: 4 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -446,7 +393,7 @@ const groupAndSetLoans = (loansArray) => {
               </Box>
             )}
 
-            {/* Loans Section (Scrollable) */}
+            {/* Loans Section */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <FormControl sx={{ minWidth: 200 }} size="small">
                 <InputLabel id="loan-status-label">Loan Status</InputLabel>

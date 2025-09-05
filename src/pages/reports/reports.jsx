@@ -16,6 +16,8 @@ import {
   Snackbar,
   Alert,
   Container,
+  Autocomplete,
+  TextField,
 } from '@mui/material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -25,7 +27,6 @@ import { useNavigate } from 'react-router-dom';
 import { getTheme } from '../../store/theme';
 import TitleComponent from '../../components/title';
 import { format } from 'date-fns';
-import { body } from 'framer-motion/m';
 
 const BASEURL = import.meta.env.VITE_BASE_URL;
 
@@ -34,20 +35,48 @@ const ReportScreen = () => {
   const [downloading, setDownloading] = useState({});
   const [progress, setProgress] = useState({});
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const [selectedDate, setSelectedDate] = useState(new Date()); // calendar-style input
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [organizations, setOrganizations] = useState([]);
+  const [orgLoading, setOrgLoading] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null); // Track selected report
 
   const currentUser = useAuthStore((state) => state.currentUser);
   const navigate = useNavigate();
   const theme = getTheme();
 
+  // Fetch organizations on mount
+  const fetchOrganizations = async () => {
+    setOrgLoading(true);
+    try {
+      const res = await axios.get(`${BASEURL}/organizations`, { withCredentials: true });
+      const orgs = res.data || [];
+      console.log('Organizations:', orgs);
+      setOrganizations(orgs);
+      if (orgs.length === 1) {
+        setSelectedOrg(orgs[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load organizations:', err);
+      setNotification({ open: true, message: 'Failed to load organizations', severity: 'error' });
+      setOrganizations([]);
+    } finally {
+      setOrgLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
+    } else {
+      fetchOrganizations();
     }
   }, [currentUser, navigate]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    setSelectedReport(null); // Reset selected report when switching tabs
+    setSelectedOrg(null); // Reset selected organization
   };
 
   const reportData = {
@@ -59,34 +88,49 @@ const ReportScreen = () => {
         method: 'get',
       },
     ],
-   
-
     loans: [
-  {
-    name: 'Loans per Organisation',
-    description: 'Loans per organisation',
-    endpoint: `${BASEURL}/loans-per-org`,
-    method: 'post',
-    requiresBody: true,
-  },
-  {
-    name: 'Loans Summary per Organisation',
-    description: 'Loans Summary per organisation',
-    endpoint: `${BASEURL}/loan-summary-per-org`,
-    method: 'post',
-    requiresBody: true,
-  },
-],
-
+      {
+        name: 'Loans per Organisation',
+        description: 'Loans per organisation',
+        endpoint: `${BASEURL}/loans-per-org`,
+        method: 'post',
+        requiresBody: true,
+        requiresOrg: false,
+      },
+      {
+        name: 'Loans Summary per Organisation',
+        description: 'Loans Summary per organisation',
+        endpoint: `${BASEURL}/loan-summary-per-org`,
+        method: 'post',
+        requiresBody: true,
+        requiresOrg: false,
+      },
+      {
+        name: 'Loans for Specific Organisation',
+        description: 'Loans for a specific organisation grouped by loanee',
+        endpoint: `${BASEURL}/loans-per-one-org`,
+        method: 'post',
+        requiresBody: true,
+        requiresOrg: true,
+      },
+    ],
   };
 
   const handleDownload = async (report) => {
-    const { endpoint, name, method, requiresBody } = report;
+    const { endpoint, name, method, requiresBody, requiresOrg } = report;
 
     if (requiresBody && !selectedDate) {
       setNotification({
         open: true,
         message: 'Please select a month first',
+        severity: 'error',
+      });
+      return;
+    }
+    if (requiresOrg && !selectedOrg) {
+      setNotification({
+        open: true,
+        message: 'Please select an organization first',
         severity: 'error',
       });
       return;
@@ -107,18 +151,25 @@ const ReportScreen = () => {
         },
       };
 
-      // Send month in the request body for GET requests
+      // Prepare request body
+      const requestBody = requiresBody
+        ? { month: formattedMonth, ...(requiresOrg ? { orgId: selectedOrg.id } : {}) }
+        : undefined;
+
       const response = await axios({
-        method, // Use 'get' as specified in reportData
-        url: endpoint, // No query parameters
-        data: requiresBody ? { month: formattedMonth } : undefined, // Send month in body
+        method,
+        url: endpoint,
+        data: requestBody,
         ...config,
       });
 
       const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.setAttribute('download', `${name.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+      link.setAttribute(
+        'download',
+        `${name.toLowerCase().replace(/\s+/g, '-')}${requiresOrg ? `-${selectedOrg.name}` : ''}-${formattedMonth}.pdf`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -153,7 +204,7 @@ const ReportScreen = () => {
     return (
       <>
         {activeTab === 1 && (
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               <DatePicker
                 views={['year', 'month']}
@@ -165,6 +216,24 @@ const ReportScreen = () => {
                 slotProps={{ textField: { variant: 'outlined', sx: { mr: 2 } } }}
               />
             </LocalizationProvider>
+            {selectedReport?.requiresOrg && (
+              <Autocomplete
+                options={organizations}
+                getOptionLabel={(option) => option.name || ''}
+                loading={orgLoading}
+                value={selectedOrg}
+                onChange={(event, newValue) => setSelectedOrg(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Select Organization"
+                    variant="outlined"
+                    sx={{ width: 300 }}
+                  />
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+              />
+            )}
           </Box>
         )}
 
@@ -187,7 +256,10 @@ const ReportScreen = () => {
                       <Button
                         variant="contained"
                         sx={{ backgroundColor: theme.palette.greenAccent.main }}
-                        onClick={() => handleDownload(report)}
+                        onClick={() => {
+                          setSelectedReport(report); // Set selected report
+                          handleDownload(report);
+                        }}
                         disabled={downloading[report.endpoint]}
                       >
                         {downloading[report.endpoint] ? 'Downloading...' : 'Download'}

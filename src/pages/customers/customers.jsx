@@ -12,6 +12,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   IconButton,
+  Autocomplete,
 } from '@mui/material';
 import { DataGrid, GridToolbarContainer, GridToolbarExport } from '@mui/x-data-grid';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -26,22 +27,45 @@ import { getTheme } from '../../store/theme';
 const EmployeeListScreen = () => {
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.currentUser);
-  const BASEURL = import.meta.env.VITE_BASE_URL; // Ensure: http://localhost:3000
+  const BASEURL = import.meta.env.VITE_BASE_URL; // e.g., http://localhost:3000
   const theme = getTheme();
 
   const [rows, setRows] = useState([]);
   const [rowCount, setRowCount] = useState(0);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchType, setSearchType] = useState('name');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState('');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [organizations, setOrganizations] = useState([]);
+  const [selectedOrg, setSelectedOrg] = useState(null);
 
   useEffect(() => {
     if (!currentUser) navigate('/login');
   }, [currentUser, navigate]);
+
+  // Fetch organizations
+  const fetchOrganizations = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${BASEURL}/organizations`, { withCredentials: true });
+      const orgs = Array.isArray(res.data) ? res.data : [];
+      console.log('Organizations:', orgs);
+      setOrganizations(orgs);
+    } catch (err) {
+      console.error('Failed to load organizations:', err);
+      setError('Failed to load organizations');
+      setSnackbarOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrganizations();
+  }, []);
 
   const flattenRow = (emp) => {
     const user = emp.user || {};
@@ -83,8 +107,7 @@ const EmployeeListScreen = () => {
         withCredentials: true,
       });
 
-      console.log(`API Response: ${JSON.stringify(resp.data)}`);
-      const { data, total } = resp.data.data;
+      const { data, total } = resp.data.data || { data: [], total: 0 };
       const validRows = Array.isArray(data)
         ? data.filter(emp => emp && emp.phoneNumber).map(flattenRow)
         : [];
@@ -93,31 +116,73 @@ const EmployeeListScreen = () => {
       setRowCount(total || 0);
     } catch (err) {
       console.error('Error fetching employee users:', err);
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        navigate('/login');
-      } else if (err.response?.status === 404) {
-        setError('Endpoint not found. Please check the API URL.');
-      } else {
-        setError('Failed to load employees.');
-      }
-      setSnackbarOpen(true);
-      setRows([]);
-      setRowCount(0);
+      handleError(err);
     } finally {
       setLoading(false);
     }
   }, [BASEURL, navigate]);
 
+  const fetchByOrganization = useCallback(async ({ page, pageSize, organizationId }) => {
+    setLoading(true);
+    setError('');
+    try {
+      const resp = await axios.get(`${BASEURL}/employees/by-organization`, {
+        params: { organizationId: String(organizationId), page: page + 1, limit: pageSize },
+        withCredentials: true,
+      });
+
+      const { data, total } = resp.data.data || { data: [], total: 0 };
+      const validRows = Array.isArray(data)
+        ? data.filter(emp => emp && emp.phoneNumber).map(flattenRow)
+        : [];
+      console.log('Organization Rows:', validRows);
+      setRows(validRows);
+      setRowCount(total || 0);
+    } catch (err) {
+      console.error('Error fetching employees by organization:', err);
+      handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [BASEURL, navigate]);
+
+  const handleError = (err) => {
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      navigate('/login');
+    } else if (err.response?.status === 404) {
+      setError(err.response?.data?.message || 'Resource not found.');
+    } else {
+      setError(err.response?.data?.message || 'Failed to load employees.');
+    }
+    setSnackbarOpen(true);
+    setRows([]);
+    setRowCount(0);
+  };
+
   const doSearch = useCallback(
-    debounce(async ({ type, query, page, pageSize }) => {
-      if (!query.trim()) return fetchPage({ page, pageSize });
+    debounce(async ({ type, query, page, pageSize, organizationId }) => {
       setIsSearching(true);
       try {
-        const url = `${BASEURL}/employees/search-by-${type}`;
-        const params = { tenantId: currentUser.tenantId, page: page + 1, limit: pageSize };
-        params[type] = query.trim();
+        // If no query and organizationId is provided, use /employees/by-organization
+        if (!query.trim() && organizationId) {
+          return fetchByOrganization({ page, pageSize, organizationId });
+        }
+
+        // If no query and no organizationId, fetch all employees
+        if (!query.trim() && !organizationId) {
+          return fetchPage({ page, pageSize });
+        }
+
+        const url = type === 'name' ? `${BASEURL}/employees/search-by-name` : `${BASEURL}/employees/search-by-phone`;
+        const params = {
+          page: page + 1,
+          limit: pageSize,
+          ...(type === 'name' && query.trim() ? { name: query.trim() } : {}),
+          ...(type === 'phone' && query.trim() ? { phone: query.trim() } : {}),
+          ...(organizationId ? { organizationId: String(organizationId) } : {}),
+        };
         const resp = await axios.get(url, { params, withCredentials: true });
-        const { data, total } = resp.data.data;
+        const { data, total } = resp.data.data || { data: [], total: 0 };
         const validRows = Array.isArray(data)
           ? data.filter(emp => emp && emp.phoneNumber).map(flattenRow)
           : [];
@@ -126,26 +191,24 @@ const EmployeeListScreen = () => {
         setRowCount(total || 0);
       } catch (err) {
         console.error('Error searching employees:', err);
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          navigate('/login');
-        } else {
-          setError('Search failed.');
-          setSnackbarOpen(true);
-          setRows([]);
-          setRowCount(0);
-        }
+        handleError(err);
       } finally {
         setIsSearching(false);
       }
     }, 500),
-    [BASEURL, currentUser, fetchPage]
+    [BASEURL, fetchPage, fetchByOrganization]
   );
 
   useEffect(() => {
     const { page, pageSize } = paginationModel;
-    if (!searchQuery.trim()) fetchPage({ page, pageSize });
-    else doSearch({ type: searchType, query: searchQuery, page, pageSize });
-  }, [paginationModel, searchQuery, searchType, fetchPage, doSearch]);
+    doSearch({
+      type: searchType,
+      query: searchQuery,
+      page,
+      pageSize,
+      organizationId: selectedOrg?.id,
+    });
+  }, [paginationModel, searchType, searchQuery, selectedOrg, doSearch]);
 
   const columns = [
     {
@@ -225,19 +288,27 @@ const EmployeeListScreen = () => {
       <Typography variant="h5" sx={{ mb: 2 }}>
         <TitleComponent title="Employees" />
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
         <ToggleButtonGroup
           value={searchType}
           exclusive
           size="small"
-          onChange={(_, v) => v && setSearchType(v)}
+          onChange={(_, v) => {
+            if (v) {
+              setSearchType(v);
+              setSearchQuery('');
+              setPaginationModel((m) => ({ ...m, page: 0 }));
+            }
+          }}
         >
           <ToggleButton value="name">Name</ToggleButton>
           <ToggleButton value="phone">Phone</ToggleButton>
         </ToggleButtonGroup>
-        <TextField
+
+
+          <TextField
           size="small"
-          placeholder={`Search by ${searchType}`}
+          placeholder={`Search by ${searchType === 'name' ? 'Name' : 'Phone Number'}`}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           InputProps={{
@@ -254,14 +325,45 @@ const EmployeeListScreen = () => {
           }}
           sx={{ width: 240 }}
         />
+        <Autocomplete
+
+        
+          options={[{ id: null, name: 'All Organizations' }, ...organizations]}
+          getOptionLabel={(option) => option.name || ''}
+          value={selectedOrg}
+          onChange={(event, newValue) => {
+            setSelectedOrg(newValue);
+            setPaginationModel((m) => ({ ...m, page: 0 }));
+          }}
+
+          
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Filter by Organization"
+              variant="outlined"
+              size="small"
+              sx={{ width: 240 }}
+            />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+          sx={{ width: 240 }}
+        />
+      
         <Button
           variant="contained"
           size="small"
           onClick={() => {
             setPaginationModel((m) => ({ ...m, page: 0 }));
-            doSearch({ type: searchType, query: searchQuery, page: 0, pageSize: paginationModel.pageSize });
+            doSearch({
+              type: searchType,
+              query: searchQuery,
+              page: 0,
+              pageSize: paginationModel.pageSize,
+              organizationId: selectedOrg?.id,
+            });
           }}
-          disabled={isSearching}
+          disabled={isSearching || loading}
         >
           Search
         </Button>
@@ -280,9 +382,9 @@ const EmployeeListScreen = () => {
           pageSizeOptions={[10, 20, 50]}
           disableRowSelectionOnClick
           autoHeight
-          sx={{ minWidth: 1200 }} // Ensure enough width for all columns
-          components={{
-            Toolbar: () => (
+          sx={{ minWidth: 1200 }}
+          slots={{
+            toolbar: () => (
               <GridToolbarContainer>
                 <GridToolbarExport />
               </GridToolbarContainer>

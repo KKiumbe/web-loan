@@ -270,7 +270,7 @@ export default function OrganizationDetailScreen() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <Typography sx={{ fontSize: '1rem', mb: 2, color: theme.palette.text.secondary }}>
-                <strong>Tenant:</strong> {tenant?.name || 'N/A'}
+               
               </Typography>
               <Typography sx={{ fontSize: '1rem', mb: 2, color: theme.palette.text.secondary }}>
                 <strong>Created At:</strong>{' '}
